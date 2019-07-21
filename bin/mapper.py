@@ -4,48 +4,10 @@ Prints a map of the entire world.
 """
 
 import argparse
-import os, sys
-import math
-from struct import pack
-# local module
-try:
-    import nbt
-except ImportError:
-    # nbt not in search path. Let's see if it can be found in the parent folder
-    extrasearchpath = os.path.realpath(os.path.join(__file__,os.pardir,os.pardir))
-    if not os.path.exists(os.path.join(extrasearchpath,'nbt')):
-        raise
-    sys.path.append(extrasearchpath)
-from nbt.region import RegionFile
-from nbt.chunk import Chunk
-from nbt.world import WorldFolder,McRegionWorldFolder
-# PIL module (not build-in)
-try:
-    from PIL import Image
-except ImportError:
-    # PIL not in search path. Let's see if it can be found in the parent folder
-    sys.stderr.write("Module PIL/Image not found. Pillow (a PIL fork) can be found at http://python-imaging.github.io/\n")
-    # Note: it may also be possible that PIL is installed, but JPEG support is disabled or broken
-    sys.exit(70) # EX_SOFTWARE
+import os
 
-def get_heightmap_image(chunk, buffer=False, gmin=False, gmax=False):
-    points = chunk.blocks.generate_heightmap(buffer, True)
-    # Normalize the points
-    hmin = min(points) if (gmin == False) else gmin # Allow setting the min/max explicitly, in case this is part of a bigger map
-    hmax = max(points) if (gmax == False) else gmax
-    hdelta = hmax-hmin+0.0
-    pixels = ""
-    for y in range(16):
-        for x in range(16):
-            # pix X => mc -Z
-            # pix Y => mc X
-            offset = (15-x)*16+y
-            height = int((points[offset]-hmin)/hdelta*255)
-            if (height < 0): height = 0
-            if (height > 255): height = 255
-            pixels += pack(">B", height)
-    im = Image.fromstring('L', (16,16), pixels)
-    return im
+from nbt.world import WorldFolder
+from PIL import Image
 
 
 # List of blocks to ignore
@@ -82,89 +44,89 @@ block_ignore = [
 # TODO: move this map into a separate config file
 
 block_colors = {
-    'acacia_leaves':        {'h':114, 's':64,  'l':22 },
-    'acacia_log':           {'h':35,  's':93,  'l':30 },
-    'air':                  {'h':0,   's':0,   'l':0  },
-    'andesite':             {'h':0,   's':0,   'l':32 },
-    'azure_bluet':          {'h':0,   's':0,   'l':100},
-    'bedrock':              {'h':0,   's':0,   'l':10 },
-    'birch_leaves':         {'h':114, 's':64,  'l':22 },
-    'birch_log':            {'h':35,  's':93,  'l':30 },
-    'blue_orchid':          {'h':0,   's':0,   'l':100},
-    'bookshelf':            {'h':0,   's':0,   'l':100},
-    'brown_mushroom':       {'h':0,   's':0,   'l':100},
-    'brown_mushroom_block': {'h':0,   's':0,   'l':100},
-    'cactus':               {'h':126, 's':61,  'l':20 },
-    'cave_air':             {'h':0,   's':0,   'l':0  },
-    'chest':                {'h':0,   's':100, 'l':50 },
-    'clay':                 {'h':7,   's':62,  'l':23 },
-    'coal_ore':             {'h':0,   's':0,   'l':10 },
-    'cobblestone':          {'h':0,   's':0,   'l':25 },
-    'cobblestone_stairs':   {'h':0,   's':0,   'l':25 },
-    'crafting_table':       {'h':0,   's':0,   'l':100},
-    'dandelion':            {'h':60,  's':100, 'l':60 },
-    'dark_oak_leaves':      {'h':114, 's':64,  'l':22 },
-    'dark_oak_log':         {'h':35,  's':93,  'l':30 },
-    'dark_oak_planks':      {'h':35,  's':93,  'l':30 },
-    'dead_bush':            {'h':0,   's':0,   'l':100},
-    'diorite':              {'h':0,   's':0,   'l':32 },
-    'dirt':                 {'h':27,  's':51,  'l':15 },
-    'end_portal_frame':     {'h':0,   's':100, 'l':50 },
-    'farmland':             {'h':35,  's':93,  'l':15 },
-    'fire':                 {'h':55,  's':100, 'l':50 },
-    'flowing_lava':         {'h':16,  's':100, 'l':48 },
-    'flowing_water':        {'h':228, 's':50,  'l':23 },
-    'glass_pane':           {'h':0,   's':0,   'l':100},
-    'granite':              {'h':0,   's':0,   'l':32 },
-    'grass':                {'h':94,  's':42,  'l':25 },
-    'grass_block':          {'h':94,  's':42,  'l':32 },
-    'gravel':               {'h':21,  's':18,  'l':20 },
-    'ice':                  {'h':240, 's':10,  'l':95 },
-    'infested_stone':       {'h':320, 's':100, 'l':50 },
-    'iron_ore':             {'h':22,  's':65,  'l':61 },
-    'iron_bars':            {'h':22,  's':65,  'l':61 },
-    'ladder':               {'h':35,  's':93,  'l':30 },
-    'lava':                 {'h':16,  's':100, 'l':48 },
-    'lilac':                {'h':0,   's':0,   'l':100},
-    'lily_pad':             {'h':114, 's':64,  'l':18 },
-    'lit_pumpkin':          {'h':24,  's':100, 'l':45 },
-    'mossy_cobblestone':    {'h':115, 's':30,  'l':50 },
-    'mushroom_stem':        {'h':0,   's':0,   'l':100},
-    'oak_door':             {'h':35,  's':93,  'l':30 },
-    'oak_fence':            {'h':35,  's':93,  'l':30 },
-    'oak_fence_gate':       {'h':35,  's':93,  'l':30 },
-    'oak_leaves':           {'h':114, 's':64,  'l':22 },
-    'oak_log':              {'h':35,  's':93,  'l':30 },
-    'oak_planks':           {'h':35,  's':93,  'l':30 },
-    'oak_pressure_plate':   {'h':35,  's':93,  'l':30 },
-    'oak_stairs':           {'h':114, 's':64,  'l':22 },
-    'peony':                {'h':0,   's':0,   'l':100},
-    'pink_tulip':           {'h':0,   's':0,   'l':0  },
-    'poppy':                {'h':0,   's':100, 'l':50 },
-    'pumpkin':              {'h':24,  's':100, 'l':45 },
-    'rail':                 {'h':33,  's':81,  'l':50 },
-    'red_mushroom':         {'h':0,   's':50,  'l':20 },
-    'red_mushroom_block':   {'h':0,   's':50,  'l':20 },
-    'rose_bush':            {'h':0,   's':0,   'l':100},
-    'sugar_cane':           {'h':123, 's':70,  'l':50 },
-    'sand':                 {'h':53,  's':22,  'l':58 },
-    'sandstone':            {'h':48,  's':31,  'l':40 },
-    'seagrass':             {'h':94,  's':42,  'l':25 },
-    'sign':                 {'h':114, 's':64,  'l':22 },
-    'spruce_leaves':        {'h':114, 's':64,  'l':22 },
-    'spruce_log':           {'h':35,  's':93,  'l':30 },
-    'stone':                {'h':0,   's':0,   'l':32 },
-    'stone_slab':           {'h':0,   's':0,   'l':32 },
-    'tall_grass':           {'h':94,  's':42,  'l':25 },
-    'tall_seagrass':        {'h':94,  's':42,  'l':25 },
-    'torch':                {'h':60,  's':100, 'l':50 },
-    'snow':                 {'h':240, 's':10,  'l':85 },
-    'spawner':              {'h':180, 's':100, 'l':50 },
-    'vine':                 {'h':114, 's':64,  'l':18 },
-    'wall_torch':           {'h':60,  's':100, 'l':50 },
-    'water':                {'h':228, 's':50,  'l':23 },
-    'wheat':                {'h':123, 's':60,  'l':50 },
-    'white_wool':           {'h':0,   's':0,   'l':100},
+    'acacia_leaves':            (27,    92,     20),
+    'acacia_log':               (147,   88,     5),
+    'air':                      (0,     0,      0),
+    'andesite':                 (81,    81,     81),
+    'azure_bluet':              (255,   255,    255),
+    'bedrock':                  (25,    25,     25),
+    'birch_leaves':             (27,    92,     20),
+    'birch_log':                (147,   88,     5),
+    'blue_orchid':              (255,   255,    255),
+    'bookshelf':                (255,   255,    255),
+    'brown_mushroom':           (255,   255,    255),
+    'brown_mushroom_block':     (255,   255,    255),
+    'cactus':                   (19,    82,     26),
+    'cave_air':                 (0,     0,      0),
+    'chest':                    (255,   0,      0),
+    'clay':                     (95,    30,     22),
+    'coal_ore':                 (25,    25,     25),
+    'cobblestone':              (63,    63,     63),
+    'cobblestone_stairs':       (63,    63,     63),
+    'crafting_table':           (255,   255,    255),
+    'dandelion':                (254,   255,    50),
+    'dark_oak_leaves':          (27,    92,     20),
+    'dark_oak_log':             (147,   88,     5),
+    'dark_oak_planks':          (147,   88,     5),
+    'dead_bush':                (255,   255,    255),
+    'diorite':                  (81,    81,     81),
+    'dirt':                     (57,    36,     18),
+    'end_portal_frame':         (255,   0,      0),
+    'farmland':                 (73,    44,     2),
+    'fire':                     (255,   233,    0),
+    'flowing_lava':             (244,   65,     0),
+    'flowing_water':            (29,    41,     87),
+    'glass_pane':               (255,   255,    255),
+    'granite':                  (81,    81,     81),
+    'grass':                    (60,    90,     36),
+    'grass_block':              (77,    115,    47),
+    'gravel':                   (60,    48,     41),
+    'ice':                      (240,   240,    243),
+    'infested_stone':           (255,   0,      169),
+    'iron_bars':                (220,   138,    90),
+    'iron_ore':                 (220,   138,    90),
+    'ladder':                   (147,   88,     5),
+    'lava':                     (244,   65,     0),
+    'lilac':                    (255,   255,    255),
+    'lily_pad':                 (22,    75,     16),
+    'lit_pumpkin':              (229,   91,     0),
+    'mossy_cobblestone':        (95,    165,    89),
+    'mushroom_stem':            (255,   255,    255),
+    'oak_door':                 (147,   88,     5),
+    'oak_fence':                (147,   88,     5),
+    'oak_fence_gate':           (147,   88,     5),
+    'oak_leaves':               (27,    92,     20),
+    'oak_log':                  (147,   88,     5),
+    'oak_planks':               (147,   88,     5),
+    'oak_pressure_plate':       (147,   88,     5),
+    'oak_stairs':               (27,    92,     20),
+    'peony':                    (255,   255,    255),
+    'pink_tulip':               (0,     0,      0),
+    'poppy':                    (255,   0,      0),
+    'pumpkin':                  (229,   91,     0),
+    'rail':                     (230,   137,    24),
+    'red_mushroom':             (76,    25,     25),
+    'red_mushroom_block':       (76,    25,     25),
+    'rose_bush':                (255,   255,    255),
+    'sand':                     (171,   165,    124),
+    'sandstone':                (133,   120,    70),
+    'seagrass':                 (60,    90,     36),
+    'sign':                     (27,    92,     20),
+    'snow':                     (212,   212,    220),
+    'spawner':                  (0,     254,    255),
+    'spruce_leaves':            (27,    92,     20),
+    'spruce_log':               (147,   88,     5),
+    'stone':                    (81,    81,     81),
+    'stone_slab':               (81,    81,     81),
+    'sugar_cane':               (38,    216,    47),
+    'tall_grass':               (60,    90,     36),
+    'tall_seagrass':            (60,    90,     36),
+    'torch':                    (254,   255,    0),
+    'vine':                     (22,    75,     16),
+    'wall_torch':               (254,   255,    0),
+    'water':                    (29,    41,     87),
+    'wheat':                    (50,    204,    58),
+    'white_wool':               (255,   255,    255),
     }
 
 missing_blocks = {}
@@ -193,8 +155,12 @@ def get_map(chunk):
             pixel_idx = z*16+x
             section_y = heights[pixel_idx] // 16
             if section_y not in sections:
-                section = next(section for section in chunk["Level"]["Sections"]
-                    if section["Y"].value == section_y)
+                try:
+                    section = next(section for section in chunk["Level"]["Sections"]
+                        if section["Y"].value == section_y)
+                except:
+                    section = next(section for section in reversed(chunk["Level"]["Sections"])
+                        if "Palette" in section)
                 # Find the number of bits it takes to represent the largest index in the palette (at least 4)
                 try:
                     index_len = max((4, len(bin(len(section["Palette"])-1)[2:])))
@@ -214,224 +180,60 @@ def get_map(chunk):
             section, blocks = sections[section_y]
             palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
             block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
-            # print(block)
             color = block_colors.get(block)
             if not color:
                 # Magenta for types that aren't in there yet
                 missing_blocks[block] = True
                 pixels.append(bytes((255, 0, 255)))
             else:
-                pixels.append(bytes(hsl2rgb(color["h"], color["s"], color["l"])))
+                pixels.append(bytes(color))
 
     return Image.frombytes("RGB", (16, 16), b"".join(pixels))
 
 
+def main():
+    parser = argparse.ArgumentParser("Minecraft map generator")
+    parser.add_argument("folder", help="A Minecraft save folder")
+    parser.add_argument("--show", action="store_true", help="Open the map upon completion")
+    args = parser.parse_args()
 
-    # Find the highest section with a palette (should be the highest section with blocks)
-    section = next((section for section in reversed(chunk["Level"]["Sections"])
-            if "Palette" in section), None)
-    if section is None:
-        # Not sure why this would happen but if it does, just return a black square
-        return Image.frombytes("RGB", (16, 16),
-            b"".join(bytes((0, 0, 0)) for _ in range(256)))
-    # Find the number of bits it takes to represent the largest index in the palette (at least 4)
-    index_len = max((4, len(bin(len(section["Palette"])-1)[2:])))
-    # BlockStates is a list of longs, convert them into one string of bytes
-    blockstates = b"".join(val.to_bytes(8, "little", signed=True) for val in section["BlockStates"])
-    # Convert the string of bytes into a string of bits.  This changes it from little to big endian
-    # Each long in BlockStates will be 64 bits long
-    bits = ("%*s" % (64*len(section["BlockStates"]), bin(int.from_bytes(blockstates, "little"))[2:])).replace(" ", "0")
-    # Get the list of palette indexes and reverse it to compensate for big endianness
-    blocks = [int(bits[i:i+index_len], base=2) for i in range(0, 4096*index_len, index_len)][::-1]
-
-    pixels = []
-    for z in range(16):
-        for x in range(16):
-            idx = z*16+x
-            color = heights[idx]
-            try:
-                pixels.append(bytes([color, color, color]))
-            except:
-                print("strytes:", strytes)
-                print("idx:", idx)
-                print("color:", color)
-                raise
-
-    im = Image.frombytes('RGB', (16,16), b"".join(pixels))
-    return im
-
-    pixels = b""
-    # print(chunk["Level"]["HeightMap"])
-    print(chunk["Level"]["Sections"][0])
-    for z in range(16):
-        for x in range(16):
-            # Find the highest block in this column
-            max_height = chunk.get_max_height()
-            ground_height = max_height
-            tints = []
-            for y in range(max_height,-1,-1):
-                block_id = chunk.get_block(x, y, z)
-                if block_id != None:
-
-                    #block_data = 0  # TODO: use block properties
-                    #if (block_id == 'water' or block_id == 'water'):
-                        #tints.append({'h':228, 's':50, 'l':23}) # Water
-                    #elif (block_id == 'leaves'):  # TODO: old id - update
-                        #if (block_data == 1):
-                            #tints.append({'h':114, 's':64, 'l':22}) # Redwood Leaves
-                        #elif (block_data == 2):
-                            #tints.append({'h':93, 's':39, 'l':10}) # Birch Leaves
-                        #else:
-                            #tints.append({'h':114, 's':64, 'l':22}) # Normal Leaves
-                    #elif (block_id == 'ice'):
-                        #tints.append({'h':240, 's':5, 'l':95}) # Ice
-                    #elif (block_id == 'fire'):
-                        #tints.append({'h':55, 's':100, 'l':50}) # Fire
-                    #elif (block_id != 'air' or block_id != 'cave_air' or y == 0):
-                    if (block_id not in block_ignore or y == 0):
-                        # Here is ground level
-                        ground_height = y
-                        break
-
-            if block_id != None:
-                if block_id in block_colors:
-                    color = block_colors[block_id]
-                else:
-                    color = {'h':0, 's':0, 'l':100}
-                    print("warning: unknown color for block id: %s" % block_id)
-                    print("hint: add that block to the 'block_colors' map")
-            else:
-                color = {'h':0, 's':0, 'l':0}
-
-            height_shift = 0 #(ground_height-64)*0.25
-
-            final_color = {'h':color['h'], 's':color['s'], 'l':color['l'] + height_shift}
-            if final_color['l'] > 100: final_color['l'] = 100
-            if final_color['l'] < 0: final_color['l'] = 0
-
-            # Apply tints from translucent blocks
-            for tint in reversed(tints):
-                final_color = hsl_slide(final_color, tint, 0.4)
-
-            rgb = hsl2rgb(final_color['h'], final_color['s'], final_color['l'])
-
-            pixels += pack("BBB", rgb[0], rgb[1], rgb[2])
-
-    im = Image.frombytes('RGB', (16,16), pixels)
-    return im
-
-
-## Color functions for map generation ##
-
-# Hue given in degrees,
-# saturation and lightness given either in range 0-1 or 0-100 and returned in kind
-def hsl_slide(hsl1, hsl2, ratio):
-    if (abs(hsl2['h'] - hsl1['h']) > 180):
-        if (hsl1['h'] > hsl2['h']):
-            hsl1['h'] -= 360
-        else:
-            hsl1['h'] += 360
-
-    # Find location of two colors on the H/S color circle
-    p1x = math.cos(math.radians(hsl1['h']))*hsl1['s']
-    p1y = math.sin(math.radians(hsl1['h']))*hsl1['s']
-    p2x = math.cos(math.radians(hsl2['h']))*hsl2['s']
-    p2y = math.sin(math.radians(hsl2['h']))*hsl2['s']
-
-    # Slide part of the way from tint to base color
-    avg_x = p1x + ratio*(p2x-p1x)
-    avg_y = p1y + ratio*(p2y-p1y)
-    avg_h = math.atan(avg_y/avg_x)
-    avg_s = avg_y/math.sin(avg_h)
-    avg_l = hsl1['l'] + ratio*(hsl2['l']-hsl1['l'])
-    avg_h = math.degrees(avg_h)
-
-    #print('tint: %s base: %s avg: %s %s %s' % (tint,final_color,avg_h,avg_s,avg_l))
-    return {'h':avg_h, 's':avg_s, 'l':avg_l}
-
-
-# From http://www.easyrgb.com/index.php?X=MATH&H=19#text19
-def hsl2rgb(H,S,L):
-    H = H/360.0
-    S = S/100.0 # Turn into a percentage
-    L = L/100.0
-    if (S == 0):
-        return (int(L*255), int(L*255), int(L*255))
-    var_2 = L * (1+S) if (L < 0.5) else (L+S) - (S*L)
-    var_1 = 2*L - var_2
-
-    def hue2rgb(v1, v2, vH):
-        if (vH < 0): vH += 1
-        if (vH > 1): vH -= 1
-        if ((6*vH)<1): return v1 + (v2-v1)*6*vH
-        if ((2*vH)<1): return v2
-        if ((3*vH)<2): return v1 + (v2-v1)*(2/3.0-vH)*6
-        return v1
-
-    R = int(255*hue2rgb(var_1, var_2, H + (1.0/3)))
-    G = int(255*hue2rgb(var_1, var_2, H))
-    B = int(255*hue2rgb(var_1, var_2, H - (1.0/3)))
-    return (R,G,B)
-
-
-def main(world_folder, show=True):
-    world = WorldFolder(world_folder)
+    print("Opening world...")
+    world = WorldFolder(args.folder)
+    print("Getting bounding box...")
     bb = world.get_boundingbox()
+    print("Generating image placeholder...")
     world_map = Image.new('RGB', (16*bb.lenx(),16*bb.lenz()))
+    print("Getting world chunk count...")
     t = world.chunk_count()
     try:
-        i =0.0
+        i = 0.0
+        print("Generating map...   0.0%", end="", flush=True)
+        print("\b\b\b\b\b\b%5s%%" % ("%.1f" % (100*i/t)), end="", flush=True)
         for chunk in world.iter_nbt():
             # assert chunk["DataVersion"].value == 1976
             if i % 50 ==0:
-                sys.stdout.write("Rendering image")
-                pass
-            elif i % 2 == 0:
-                sys.stdout.write(".")
-                pass
-                sys.stdout.flush()
-                pass
-            elif i % 50 == 49:
-                sys.stdout.write("%5.1f%%\n" % (100*i/t))
-                pass
+                print("\b\b\b\b\b\b%5s%%" % ("%.1f" % (100*i/t)), end="", flush=True)
             i +=1
             chunkmap = get_map(chunk)
-            # x,z = chunk.get_coords()
             x = chunk["Level"]["xPos"].value
             z = chunk["Level"]["zPos"].value
             world_map.paste(chunkmap, (16*(x-bb.minx),16*(z-bb.minz)))
-        print(" done\n")
+        print("\rGenerating map... 100.0%")
         if len(missing_blocks):
             print("Missing blocks:")
             print("  " + "\n  ".join(sorted(missing_blocks.keys())))
-        filename = os.path.basename(world_folder)+".png"
+        filename = os.path.basename(args.folder)+".png"
         world_map.save(filename,"PNG")
         print("Saved map as %s" % filename)
     except KeyboardInterrupt:
         print(" aborted\n")
-        filename = os.path.basename(world_folder)+".partial.png"
+        filename = os.path.basename(args.folder)+".partial.png"
         world_map.save(filename,"PNG")
         print("Saved map as %s" % filename)
         return 75 # EX_TEMPFAIL
-    if show:
+    if args.show:
         world_map.show()
     return 0 # NOERR
 
-
 if __name__ == '__main__':
-    if (len(sys.argv) == 1):
-        print("No world folder specified!")
-        sys.exit(64) # EX_USAGE
-    if sys.argv[1] == '--noshow' and len(sys.argv) > 2:
-        show = False
-        world_folder = sys.argv[2]
-    else:
-        show = True
-        world_folder = sys.argv[1]
-    # clean path name, eliminate trailing slashes. required for os.path.basename()
-    world_folder = os.path.normpath(world_folder)
-    if (not os.path.exists(world_folder)):
-        print("No such folder as "+world_folder)
-        sys.exit(72) # EX_IOERR
-
-    sys.exit(main(world_folder, True))
+    main()
