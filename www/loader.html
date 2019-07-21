@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Loader</title>
+  <style type="text/css">
+    * { font-family: Verdana, sans-serif; box-sizing: border-box; }
+    table { border-collapse: collapse; }
+    td { border: 1px solid silver; padding: 5px;
+      text-align: left; vertical-align: top; }
+    td.header { font-weight: bold; background-color: #eeeeee; }
+    tr.deleted { background-color: salmon; }
+    tr.modified { background-color: dodgerblue; }
+  </style>
+  <script type="text/javascript" src="js/vue.min.js"></script>
+  <script type="text/javascript" src="js/js.cookie.min.js"></script>
+</head>
+<body>
+
+  <div id="content">
+    <pre v-if="errorInfo">{{ errorInfo }}</pre>
+    <div v-else>
+      <div>
+        <input type="text" v-model="dbName">
+        <button v-on:click="saveChanges">Save Changes</button>
+        <button v-on:click="discardChanges">Discard Changes</button>
+      </div>
+      <div v-for="tblName in tables">
+        <h3>
+          <button v-on:click="toggleTable(tblName)">{{displayedTables[tblName] ? '-' : '+'}}</button>
+          {{tblName}}
+        </h3>
+        <div v-if="displayedTables[tblName]">
+          <table>
+            <tr>
+              <td v-for="col in tableColumns[tblName]" class="header">{{col}}</td>
+              <td class="header"></td>
+            </tr>
+            <tr v-for="(row, rowIndex) in tableData[tblName]">
+              <td v-for="(val, colIndex) in row">
+                <input
+                  v-model="row[colIndex]"
+                  v-on:input="rowChanged(tblName, row, colIndex, $event)"
+                  v-bind:disabled="colIndex === tablePks[tblName]"
+                  v-bind:ref="tblName+rowIndex">
+              </td>
+              <td><button v-on:click="removeRow(tblName, row, $event)">X</button></td>
+            </tr>
+            <tr>
+              <td v-bind:colspan="tableColumns[tblName].length+1">
+                <button v-on:click="addRow(tblName, $event)">+</button>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    window.VueApp = new Vue({
+      el: "#content",
+      data: {
+        dbName: "test.db",
+        cookieName: "loaderSettings",
+        api: "/cgi-bin/main.py/loader",
+        errorInfo: null,
+        tables: [],
+        tablePks: {},
+        tableColumns: {},
+        tableData: {},
+        newRows: {},
+        deletedRows: {},
+        updatedRows: {},
+        displayedTables: {}
+      },
+      methods: {
+        addRow: function(tblName, e){
+          let newRow = this.tableColumns[tblName].map(c => null),
+            pkIndex = this.tablePks[tblName],
+            pkList = this.newRows[tblName].map(row => row[pkIndex].substring(3)),
+            pk = parseInt(pkList.reduce((pk, next) => next > pk ? next : pk, "0"));
+          newRow[pkIndex] = "NEW"+(1+pk);
+          this.newRows[tblName].push(newRow);
+          this.tableData[tblName].push(newRow);
+          let refName = tblName+(this.tableData[tblName].length-1),
+            me = this;
+          setTimeout(function(){
+            for (let i = 0; i < me.$refs[refName].length; i++){
+              let $el = me.$refs[refName][i];
+              if (!$el.disabled){
+                $el.focus();
+                break;
+              }
+            }
+          });
+        },
+        removeRow: function(tblName, row, e){
+          let pk = row[this.tablePks[tblName]],
+            removalIndex = this.deletedRows[tblName].indexOf(pk),
+            $row = e.target.parentNode.parentNode;
+          if (removalIndex === -1){
+            this.deletedRows[tblName].push(pk);
+            $row.classList.add("deleted");
+            if ($row.classList.contains("modified")){
+              $row.classList.remove("modified");
+            }
+          } else {
+            this.deletedRows[tblName].splice(removalIndex, 1);
+            $row.classList.remove("deleted");
+            if (this.updatedRows[tblName] && this.updatedRows[tblName][pk]){
+              $row.classList.add("modified");
+            }
+          }
+        },
+        rowChanged: function(tblName, row, index, e){
+          let pk = row[this.tablePks[tblName]],
+            column = this.tableColumns[tblName][index];
+          if ((""+pk).startsWith("NEW")){
+            return;
+          }
+          if (!this.updatedRows[tblName][pk]){
+            e.target.parentNode.parentNode.classList.add("modified");
+            Vue.set(this.updatedRows[tblName], ""+pk, {});
+          }
+          Vue.set(this.updatedRows[tblName][pk], column, row[index]);
+        },
+        saveChanges: function(){
+          let changes = {},
+            tblNames = this.tables;
+          for (let i = 0; i < tblNames.length; i++){
+            let pkIndex = this.tablePks[tblNames[i]],
+              items = this.newRows[tblNames[i]].filter(
+                row => this.deletedRows[tblNames[i]].indexOf(row[pkIndex]) === -1);
+            if (items.length > 0){
+              if (!changes.inserts){
+                changes.inserts = {};
+              }
+              if (!changes.columns){
+                changes.columns = {};
+              }
+              if (!changes.columns[tblNames[i]]){
+                changes.columns[tblNames[i]] = this.tableColumns[tblNames[i]];
+              }
+              changes.inserts[tblNames[i]] = items;
+            }
+
+            items = this.deletedRows[tblNames[i]].filter(
+              pk => !(""+pk).startsWith("NEW"));
+            if (items.length > 0){
+              if (!changes.deletes){
+                changes.deletes = {};
+              }
+              changes.deletes[tblNames[i]] = items;
+            }
+
+            items = Object.keys(this.updatedRows[tblNames[i]])
+              .filter(pk => this.deletedRows[tblNames[i]].indexOf(pk) === -1
+                && this.deletedRows[tblNames[i]].indexOf(parseInt(pk)) === -1);
+            if (items.length > 0){
+              if (!changes.updates){
+                changes.updates = {};
+              }
+              changes.updates[tblNames[i]] = {};
+              for (let j = 0; j < items.length; j++){
+                changes.updates[tblNames[i]][items[j]] = (
+                  this.updatedRows[tblNames[i]][items[j]]);
+              }
+            }
+          }
+          if (Object.keys(changes).length === 0){
+            window.location.reload();
+            return;
+          }
+          console.log(changes);
+          changes = JSON.stringify(changes);
+          console.log(changes);
+          fetch(this.api+"?action=save&db="+encodeURIComponent(this.dbName), {
+            method: "POST",
+            body: changes,
+            headers: {
+              "Content-Type": "application/json"
+            }
+          })
+          .then(r => r.text())
+          .then(function(response){
+            if (response.trim() === "Success"){
+              window.location.reload();
+            } else {
+              alert(response);
+            }
+          })
+        },
+        discardChanges: function(){
+          window.location.reload();
+        },
+        toggleTable: function(tblName){
+          this.displayedTables[tblName] = !this.displayedTables[tblName];
+          Cookies.set(this.cookieName, JSON.stringify({db: this.dbName, tables: this.displayedTables}));
+        }
+      },
+      created: function(){
+        let me = this;
+        fetch(this.api+"?action=load&db="+encodeURIComponent(this.dbName))
+          .then(r => r.text())
+          .then(function(text){
+            let data = null;
+            try {
+              data = JSON.parse(text);
+            } catch (e){
+              me.errorInfo = text;
+              return;
+            }
+            me.tables = Object.keys(data);
+            me.tables.forEach(function(tblName){
+              Vue.set(me.tablePks, tblName,
+                data[tblName]["columns"].indexOf(data[tblName]["pk"]));
+              Vue.set(me.tableColumns, tblName, data[tblName]["columns"]);
+              Vue.set(me.tableData, tblName, data[tblName]["data"]);
+              Vue.set(me.newRows, tblName, []);
+              Vue.set(me.deletedRows, tblName, []);
+              Vue.set(me.updatedRows, tblName, {});
+              Vue.set(me.displayedTables, tblName, false);
+            });
+            let settings = Cookies.get(me.cookieName);
+            if (settings){
+              settings = JSON.parse(settings);
+              if (settings.db !== me.dbName){
+                Cookies.remove(me.cookieName);
+              }
+              Object.keys(settings.tables).forEach(function(tblName){
+                me.displayedTables[tblName] = settings.tables[tblName];
+              });
+            }
+          });
+      }
+    });
+  </script>
+</body>
+</html>
