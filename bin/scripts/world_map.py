@@ -44,104 +44,106 @@ block_ignore = [
 # TODO: move this map into a separate config file
 
 block_colors = {
-    'acacia_leaves':            (27,    92,     20),
-    'acacia_log':               (147,   88,     5),
-    'air':                      (0,     0,      0),
-    'andesite':                 (81,    81,     81),
-    'azure_bluet':              (255,   255,    255),
-    'bedrock':                  (25,    25,     25),
-    'birch_leaves':             (27,    92,     20),
-    'birch_log':                (147,   88,     5),
-    'blue_orchid':              (255,   255,    255),
-    'bookshelf':                (255,   255,    255),
-    'brown_mushroom':           (255,   255,    255),
-    'brown_mushroom_block':     (255,   255,    255),
-    'cactus':                   (19,    82,     26),
-    'cave_air':                 (0,     0,      0),
-    'chest':                    (255,   0,      0),
-    'clay':                     (95,    30,     22),
-    'coal_ore':                 (25,    25,     25),
-    'cobblestone':              (63,    63,     63),
-    'cobblestone_stairs':       (63,    63,     63),
-    'crafting_table':           (255,   255,    255),
-    'dandelion':                (254,   255,    50),
-    'dark_oak_leaves':          (27,    92,     20),
-    'dark_oak_log':             (147,   88,     5),
-    'dark_oak_planks':          (147,   88,     5),
-    'dead_bush':                (255,   255,    255),
-    'diorite':                  (81,    81,     81),
-    'dirt':                     (57,    36,     18),
-    'end_portal_frame':         (255,   0,      0),
-    'farmland':                 (73,    44,     2),
-    'fire':                     (255,   233,    0),
-    'flowing_lava':             (244,   65,     0),
-    'flowing_water':            (29,    41,     87),
-    'glass_pane':               (255,   255,    255),
-    'granite':                  (81,    81,     81),
-    'grass':                    (60,    90,     36),
-    'grass_block':              (77,    115,    47),
-    'gravel':                   (60,    48,     41),
-    'ice':                      (240,   240,    243),
-    'infested_stone':           (255,   0,      169),
-    'iron_bars':                (220,   138,    90),
-    'iron_ore':                 (220,   138,    90),
-    'ladder':                   (147,   88,     5),
-    'lava':                     (244,   65,     0),
-    'lilac':                    (255,   255,    255),
-    'lily_pad':                 (22,    75,     16),
-    'lit_pumpkin':              (229,   91,     0),
-    'mossy_cobblestone':        (95,    165,    89),
-    'mushroom_stem':            (255,   255,    255),
-    'oak_door':                 (147,   88,     5),
-    'oak_fence':                (147,   88,     5),
-    'oak_fence_gate':           (147,   88,     5),
-    'oak_leaves':               (27,    92,     20),
-    'oak_log':                  (147,   88,     5),
-    'oak_planks':               (147,   88,     5),
-    'oak_pressure_plate':       (147,   88,     5),
-    'oak_stairs':               (27,    92,     20),
-    'peony':                    (255,   255,    255),
-    'pink_tulip':               (0,     0,      0),
-    'poppy':                    (255,   0,      0),
-    'pumpkin':                  (229,   91,     0),
-    'rail':                     (230,   137,    24),
-    'red_mushroom':             (76,    25,     25),
-    'red_mushroom_block':       (76,    25,     25),
-    'rose_bush':                (255,   255,    255),
-    'sand':                     (171,   165,    124),
-    'sandstone':                (133,   120,    70),
-    'seagrass':                 (60,    90,     36),
-    'sign':                     (27,    92,     20),
-    'snow':                     (212,   212,    220),
-    'spawner':                  (0,     254,    255),
-    'spruce_leaves':            (27,    92,     20),
-    'spruce_log':               (147,   88,     5),
-    'stone':                    (81,    81,     81),
-    'stone_slab':               (81,    81,     81),
-    'sugar_cane':               (38,    216,    47),
-    'tall_grass':               (60,    90,     36),
-    'tall_seagrass':            (60,    90,     36),
-    'torch':                    (254,   255,    0),
-    'vine':                     (22,    75,     16),
-    'wall_torch':               (254,   255,    0),
-    'water':                    (29,    41,     87),
-    'wheat':                    (50,    204,    58),
-    'white_wool':               (255,   255,    255),
+    'air':                      bytes((0, 0, 0)),
+
+    'andesite':                 bytes((138, 138, 142)),
+    'azure_bluet':              bytes((85, 171, 45)),
+    'birch_leaves':             bytes((112, 109, 112)),
+    'blue_orchid':              bytes((39, 169, 244)),
+    'brown_mushroom':           bytes((204, 153, 120)),
+    'cactus':                   bytes((82, 125, 38)),
+    'coal_ore':                 bytes((127, 127, 127)),
+    'dandelion':                bytes((255, 236, 79)),
+    'dark_oak_leaves':          bytes((183, 185, 183)),
+    'dark_oak_log':             bytes((63, 49, 29)),
+    'dead_bush':                bytes((81, 61, 36)),
+    'diorite':                  bytes((233, 233, 233)),
+    'dirt':                     bytes((121, 85, 58)),
+    'granite':                  bytes((159, 107, 88)),
+    'grass':                    bytes((160, 160, 160)),
+    'grass_block':              bytes((151, 151, 151)),
+    'gravel':                   bytes((129, 127, 127)),
+    'ice':                      bytes((146, 185, 254)),
+    'iron_ore':                 bytes((127, 127, 127)),
+    'lava':                     bytes((209, 79, 12)),
+    'lilac':                    bytes((211, 128, 211)),
+    'lily_pad':                 bytes((150, 150, 150)),
+    'oak_leaves':               bytes((152, 153, 152)),
+    'oak_log':                  bytes((116, 90, 54)),
+    'peony':                    bytes((235, 197, 253)),
+    'poppy':                    bytes((237, 48, 44)),
+    'rail':                     bytes((103, 80, 44)),
+    'red_mushroom':             bytes((226, 18, 18)),
+    'rose_bush':                bytes((191, 37, 41)),
+    'sand':                     bytes((218, 207, 163)),
+    'sandstone':                bytes((227, 219, 176)),
+    'seagrass':                 bytes((47, 130, 0)),
+    'snow':                     bytes((255, 255, 255)),
+    'stone':                    bytes((127, 127, 127)),
+    'sugar_cane':               bytes((130, 168, 89)),
+    'tall_grass':               bytes((172, 170, 172)),
+    'tall_seagrass':            bytes((56, 147, 6)),
+    'torch':                    bytes((159, 127, 80)),
+    'vine':                     bytes((131, 131, 131)),
+    'wall_torch':               bytes((159, 127, 80)),
+    'water':                    bytes((165, 165, 165)),
+    'wheat':                    bytes((166, 149, 83)),
+
+    'beetroots':                bytes((116, 35, 3)),
+    'bell':                     bytes((123, 94, 13)),
+    'birch_sapling':            bytes((108, 158, 56)),
+    'blue_ice':                 bytes((108, 163, 253)),
+    'blue_terracotta':          bytes((74, 59, 91)),
+    'brown_terracotta':         bytes((77, 52, 36)),
+    'bubble_column':            bytes((165, 165, 165)),
+    'chiseled_stone_bricks':    bytes((90, 89, 90)),
+    'cornflower':               bytes((87, 140, 77)),
+    'cracked_stone_bricks':     bytes((127, 127, 127)),
+    'cut_sandstone':            bytes((218, 210, 163)),
+    'dark_oak_sapling':         bytes((16, 82, 16)),
+    'dark_oak_slab':            bytes((79, 50, 24)),
+    'glass':                    bytes((208, 234, 233)),
+    'gold_ore':                 bytes((127, 127, 127)),
+    'hay_block':                bytes((171, 146, 37)),
+    'jungle_button':            bytes((184, 135, 100)),
+    'kelp':                     bytes((89, 171, 48)),
+    'light_gray_terracotta':    bytes((135, 107, 98)),
+    'lily_of_the_valley':       bytes((55, 127, 19)),
+    'melon_stem':               bytes((177, 177, 177)),
+    'mossy_stone_bricks':       bytes((127, 127, 127)),
+    'orange_terracotta':        bytes((159, 82, 36)),
+    'oxeye_daisy':              bytes((247, 247, 247)),
+    'packed_ice':               bytes((146, 185, 254)),
+    'potted_cactus':            bytes((137, 76, 59)),
+    'red_sand':                 bytes((191, 103, 33)),
+    'red_terracotta':           bytes((141, 59, 46)),
+    'sandstone_slab':           bytes((227, 219, 176)),
+    'sandstone_stairs':         bytes((227, 219, 176)),
+    'smooth_sandstone':         bytes((227, 219, 176)),
+    'smooth_sandstone_slab':    bytes((227, 219, 176)),
+    'smooth_sandstone_stairs':  bytes((227, 219, 176)),
+    'snow_block':               bytes((255, 255, 255)),
+    'stone_brick_stairs':       bytes((127, 127, 127)),
+    'stone_bricks':             bytes((127, 127, 127)),
+    'terracotta':               bytes((150, 93, 67)),
+    'white_terracotta':         bytes((210, 177, 161)),
+    'yellow_terracotta':        bytes((184, 131, 34)),
+
     }
 
 missing_blocks = {}
 
-def get_map(chunk):
+def get_map(chunk, layer, heightmap=False):
     # Show an image of the chunk from above
 
     try:
-        heightmap = chunk["Level"]["Heightmaps"]["WORLD_SURFACE"]
+        height_data = chunk["Level"]["Heightmaps"][layer]
     except:
         # If the heightmap isn't included, just return a black square
         return Image.frombytes("RGB", (16, 16),
             b"".join(bytes((0, 0, 0)) for _ in range(256)))
     # Heightmap is a list of longs, convert them into one string of bytes
-    hytes = b"".join(val.to_bytes(8, "little", signed=True) for val in heightmap)
+    hytes = b"".join(val.to_bytes(8, "little", signed=True) for val in height_data)
     # Convert the string of bytes into a string of bits.  This changes it from little to big endian
     strytes = ("%*s" % (256*9, bin(int.from_bytes(hytes, "little"))[2:])).replace(" ", "0")
     # Chop the bitstring into integers of nine bits each, and then reverse
@@ -153,6 +155,9 @@ def get_map(chunk):
     for z in range(16):
         for x in range(16):
             pixel_idx = z*16+x
+            if heightmap:
+                pixels.append(bytes((heights[pixel_idx], heights[pixel_idx], heights[pixel_idx])))
+                continue
             section_y = heights[pixel_idx] // 16
             if section_y not in sections:
                 try:
@@ -180,13 +185,12 @@ def get_map(chunk):
             section, blocks = sections[section_y]
             palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
             block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
-            color = block_colors.get(block)
-            if not color:
-                # Magenta for types that aren't in there yet
+            if block not in block_colors:
                 missing_blocks[block] = True
-                pixels.append(bytes((255, 0, 255)))
+                color = block_colors["air"]
             else:
-                pixels.append(bytes(color))
+                color = block_colors[block]
+            pixels.append(color)
 
     return Image.frombytes("RGB", (16, 16), b"".join(pixels))
 
@@ -195,6 +199,9 @@ def main():
     parser = argparse.ArgumentParser("Minecraft map generator")
     parser.add_argument("folder", help="A Minecraft save folder")
     parser.add_argument("--show", action="store_true", help="Open the map upon completion")
+    parser.add_argument("--heightmap", action="store_true", help="Render a heightmap")
+    parser.add_argument("--layer", choices=("WORLD_SURFACE", "OCEAN_FLOOR"),
+        default="WORLD_SURFACE", help="Which heightmap to use")
     args = parser.parse_args()
 
     print("Opening world...")
@@ -214,7 +221,7 @@ def main():
             if i % 50 ==0:
                 print("\b\b\b\b\b\b%5s%%" % ("%.1f" % (100*i/t)), end="", flush=True)
             i +=1
-            chunkmap = get_map(chunk)
+            chunkmap = get_map(chunk, args.layer, args.heightmap)
             x = chunk["Level"]["xPos"].value
             z = chunk["Level"]["zPos"].value
             world_map.paste(chunkmap, (16*(x-bb.minx),16*(z-bb.minz)))
