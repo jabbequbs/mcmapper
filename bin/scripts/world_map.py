@@ -6,6 +6,7 @@ Prints a map of the entire world.
 import argparse
 import os
 
+from mapper import block_colors
 from nbt.world import WorldFolder
 from PIL import Image
 
@@ -36,100 +37,6 @@ block_ignore = [
 #    'redstone_ore', 'lapis_ore', 'emerald_ore',
 #    'cobweb',
     ]
-
-
-# Map of block colors from names
-# Legacy block numeric identifiers are now hidden by Block class
-# and mapped to alpha identifiers in best effort
-# TODO: move this map into a separate config file
-
-block_colors = {
-    'air':                      bytes((0, 0, 0)),
-
-    'andesite':                 bytes((138, 138, 142)),
-    'azure_bluet':              bytes((85, 171, 45)),
-    'birch_leaves':             bytes((112, 109, 112)),
-    'blue_orchid':              bytes((39, 169, 244)),
-    'brown_mushroom':           bytes((204, 153, 120)),
-    'cactus':                   bytes((82, 125, 38)),
-    'coal_ore':                 bytes((127, 127, 127)),
-    'dandelion':                bytes((255, 236, 79)),
-    'dark_oak_leaves':          bytes((183, 185, 183)),
-    'dark_oak_log':             bytes((63, 49, 29)),
-    'dead_bush':                bytes((81, 61, 36)),
-    'diorite':                  bytes((233, 233, 233)),
-    'dirt':                     bytes((121, 85, 58)),
-    'granite':                  bytes((159, 107, 88)),
-    'grass':                    bytes((160, 160, 160)),
-    'grass_block':              bytes((151, 151, 151)),
-    'gravel':                   bytes((129, 127, 127)),
-    'ice':                      bytes((146, 185, 254)),
-    'iron_ore':                 bytes((127, 127, 127)),
-    'lava':                     bytes((209, 79, 12)),
-    'lilac':                    bytes((211, 128, 211)),
-    'lily_pad':                 bytes((150, 150, 150)),
-    'oak_leaves':               bytes((152, 153, 152)),
-    'oak_log':                  bytes((116, 90, 54)),
-    'peony':                    bytes((235, 197, 253)),
-    'poppy':                    bytes((237, 48, 44)),
-    'rail':                     bytes((103, 80, 44)),
-    'red_mushroom':             bytes((226, 18, 18)),
-    'rose_bush':                bytes((191, 37, 41)),
-    'sand':                     bytes((218, 207, 163)),
-    'sandstone':                bytes((227, 219, 176)),
-    'seagrass':                 bytes((47, 130, 0)),
-    'snow':                     bytes((255, 255, 255)),
-    'stone':                    bytes((127, 127, 127)),
-    'sugar_cane':               bytes((130, 168, 89)),
-    'tall_grass':               bytes((172, 170, 172)),
-    'tall_seagrass':            bytes((56, 147, 6)),
-    'torch':                    bytes((159, 127, 80)),
-    'vine':                     bytes((131, 131, 131)),
-    'wall_torch':               bytes((159, 127, 80)),
-    'water':                    bytes((165, 165, 165)),
-    'wheat':                    bytes((166, 149, 83)),
-
-    'beetroots':                bytes((116, 35, 3)),
-    'bell':                     bytes((123, 94, 13)),
-    'birch_sapling':            bytes((108, 158, 56)),
-    'blue_ice':                 bytes((108, 163, 253)),
-    'blue_terracotta':          bytes((74, 59, 91)),
-    'brown_terracotta':         bytes((77, 52, 36)),
-    'bubble_column':            bytes((165, 165, 165)),
-    'chiseled_stone_bricks':    bytes((90, 89, 90)),
-    'cornflower':               bytes((87, 140, 77)),
-    'cracked_stone_bricks':     bytes((127, 127, 127)),
-    'cut_sandstone':            bytes((218, 210, 163)),
-    'dark_oak_sapling':         bytes((16, 82, 16)),
-    'dark_oak_slab':            bytes((79, 50, 24)),
-    'glass':                    bytes((208, 234, 233)),
-    'gold_ore':                 bytes((127, 127, 127)),
-    'hay_block':                bytes((171, 146, 37)),
-    'jungle_button':            bytes((184, 135, 100)),
-    'kelp':                     bytes((89, 171, 48)),
-    'light_gray_terracotta':    bytes((135, 107, 98)),
-    'lily_of_the_valley':       bytes((55, 127, 19)),
-    'melon_stem':               bytes((177, 177, 177)),
-    'mossy_stone_bricks':       bytes((127, 127, 127)),
-    'orange_terracotta':        bytes((159, 82, 36)),
-    'oxeye_daisy':              bytes((247, 247, 247)),
-    'packed_ice':               bytes((146, 185, 254)),
-    'potted_cactus':            bytes((137, 76, 59)),
-    'red_sand':                 bytes((191, 103, 33)),
-    'red_terracotta':           bytes((141, 59, 46)),
-    'sandstone_slab':           bytes((227, 219, 176)),
-    'sandstone_stairs':         bytes((227, 219, 176)),
-    'smooth_sandstone':         bytes((227, 219, 176)),
-    'smooth_sandstone_slab':    bytes((227, 219, 176)),
-    'smooth_sandstone_stairs':  bytes((227, 219, 176)),
-    'snow_block':               bytes((255, 255, 255)),
-    'stone_brick_stairs':       bytes((127, 127, 127)),
-    'stone_bricks':             bytes((127, 127, 127)),
-    'terracotta':               bytes((150, 93, 67)),
-    'white_terracotta':         bytes((210, 177, 161)),
-    'yellow_terracotta':        bytes((184, 131, 34)),
-
-    }
 
 missing_blocks = {}
 
@@ -203,6 +110,15 @@ def main():
     parser.add_argument("--layer", choices=("WORLD_SURFACE", "OCEAN_FLOOR"),
         default="WORLD_SURFACE", help="Which heightmap to use")
     args = parser.parse_args()
+
+    if not os.path.isdir(args.folder):
+        minecraft_saves = os.path.join(os.environ["APPDATA"], ".minecraft", "saves")
+        worlds = [f for f in os.listdir(minecraft_saves)
+            if os.path.isdir(os.path.join(minecraft_saves, f))]
+        if args.folder in worlds:
+            args.folder = os.path.join(minecraft_saves, args.folder)
+        else:
+            sys.exit("%s: invalid world.  Options are %s" % (args.folder, worlds))
 
     print("Opening world...")
     world = WorldFolder(args.folder)
