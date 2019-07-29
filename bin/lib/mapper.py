@@ -924,3 +924,66 @@ def render_map(filename, verbose=False):
 
     log("Generating image...")
     return Image.frombytes("RGB", (128, 128), b"".join(pixels))
+
+
+missing_blocks = {}
+def render_chunk(chunk, layer, heightmap=False):
+    # Show an image of the chunk from above
+
+    try:
+        height_data = chunk["Level"]["Heightmaps"][layer]
+    except:
+        # If the heightmap isn't included, just return a black square
+        return Image.frombytes("RGB", (16, 16),
+            b"".join(bytes((0, 0, 0)) for _ in range(256)))
+    # Heightmap is a list of longs, convert them into one string of bytes
+    hytes = b"".join(val.to_bytes(8, "little", signed=True) for val in height_data)
+    # Convert the string of bytes into a string of bits.  This changes it from little to big endian
+    strytes = ("%*s" % (256*9, bin(int.from_bytes(hytes, "little"))[2:])).replace(" ", "0")
+    # Chop the bitstring into integers of nine bits each, and then reverse
+    # the whole thing to get back to little endian
+    heights = [int(strytes[i:i+9], base=2)-1 for i in range(0, 256*9, 9)][::-1]
+
+    pixels = []
+    sections = {}
+    for z in range(16):
+        for x in range(16):
+            pixel_idx = z*16+x
+            if heightmap:
+                pixels.append(bytes((heights[pixel_idx], heights[pixel_idx], heights[pixel_idx])))
+                continue
+            section_y = heights[pixel_idx] // 16
+            if section_y not in sections:
+                try:
+                    section = next(section for section in chunk["Level"]["Sections"]
+                        if section["Y"].value == section_y)
+                except:
+                    section = next(section for section in reversed(chunk["Level"]["Sections"])
+                        if "Palette" in section)
+                # Find the number of bits it takes to represent the largest index in the palette (at least 4)
+                try:
+                    index_len = max((4, len(bin(len(section["Palette"])-1)[2:])))
+                except KeyError:
+                    # print((chunk["Level"]["xPos"].value, chunk["Level"]["zPos"].value), heights[pixel_idx])
+                    # raise
+                    pixels.append(bytes((255, 255, 255)))
+                    continue
+                # BlockStates is a list of longs, convert them into one string of bytes
+                blockstates = b"".join(val.to_bytes(8, "little", signed=True) for val in section["BlockStates"])
+                # Convert the string of bytes into a string of bits.  This changes it from little to big endian
+                # Each long in BlockStates will be 64 bits long
+                bits = ("%*s" % (64*len(section["BlockStates"]), bin(int.from_bytes(blockstates, "little"))[2:])).replace(" ", "0")
+                # Get the list of palette indexes and reverse it to compensate for big endianness
+                blocks = [int(bits[i:i+index_len], base=2) for i in range(0, 4096*index_len, index_len)][::-1]
+                sections[section_y] = (section, blocks)
+            section, blocks = sections[section_y]
+            palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
+            block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
+            if block not in block_colors:
+                missing_blocks[block] = True
+                color = block_colors["air"]
+            else:
+                color = block_colors[block]
+            pixels.append(color)
+
+    return Image.frombytes("RGB", (16, 16), b"".join(pixels))

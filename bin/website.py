@@ -5,6 +5,7 @@ import http.server
 import inspect
 import logging
 import os
+import socketserver
 import subprocess
 import sys
 import time
@@ -111,7 +112,12 @@ class Commands(object):
 
         os.chdir(os.path.join(basepath, "..", "www"))
 
-        with http.server.HTTPServer(("", args.port), LoggingCGIHandler) as httpd:
+        class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+            def __init__(self, *args, **kwargs):
+                http.server.HTTPServer.__init__(self, *args, **kwargs)
+
+        # with http.server.HTTPServer(("", args.port), LoggingCGIHandler) as httpd:
+        with ThreadingHTTPServer(("", args.port), LoggingCGIHandler) as httpd:
             sa = httpd.socket.getsockname()
             serve_message = "Serving HTTP on http://{host}:{port}/) ..."
             logging.info(serve_message.format(host=sa[0], port=sa[1]))

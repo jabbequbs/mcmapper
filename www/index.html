@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minecraft Maps</title>
+  <style type="text/css">
+    * { font-family: Verdana, sans-serif; box-sizing: border-box; }
+    table { border-collapse: collapse; }
+    td { border: 1px solid silver; padding: 5px;
+      text-align: left; vertical-align: top; }
+    td.header { font-weight: bold; background-color: #eeeeee; }
+  </style>
+  <script type="text/javascript" src="js/vue.min.js"></script>
+  <!-- <script type="text/javascript" src="js/js.cookie.min.js"></script> -->
+</head>
+<body>
+
+  <div id="content">
+    <pre v-if="errorInfo">{{ errorInfo }}</pre>
+    <div v-else>
+      <table>
+        <tr>
+          <td v-for="col in levelInfoCols" class="header">{{col}}</td>
+          <td class="header"></td>
+        </tr>
+        <tr v-for="(row, rowIndex) in levelInfoData">
+          <td v-for="(val, colIndex) in row">{{val}}</td>
+          <td><a v-bind:href="'map.html#world='+encodeURIComponent(row[1])">Map</a></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    window.VueApp = new Vue({
+      el: "#content",
+      data: {
+        api: "/cgi-bin/main.py/info",
+        errorInfo: null,
+        levelInfoCols: [],
+        levelInfoData: []
+      },
+      methods: {},
+      created: function(){
+        let me = this;
+        fetch(this.api+"?action=load")
+          .then(r => r.text())
+          .then(function(text){
+            let data = null;
+            try {
+              data = JSON.parse(text);
+            } catch (e){
+              me.errorInfo = text;
+              return;
+            }
+            for (let i = 0; i < data.levelInfoCols.length; i++){
+              me.levelInfoCols.push(data.levelInfoCols[i]);
+            }
+            for (let i = 0; i < data.levelInfoData.length; i++){
+              me.levelInfoData.push(data.levelInfoData[i]);
+            }
+          });
+      }
+    });
+  </script>
+</body>
+</html>
