@@ -7,6 +7,7 @@ set VENV=python3
 if not exist %VENV%\Scripts\activate.bat (
     set PROMPT=
     echo on
+    @echo Performing first time setup...
     py -3 -m venv %VENV%
     call %VENV%\Scripts\activate.bat
     pip install -r scripts\requirements.txt
@@ -15,5 +16,5 @@ if not exist %VENV%\Scripts\activate.bat (
 )
 
 call %VENV%\Scripts\activate.bat
-start "" pythonw scripts\main.py
+python scripts\main.py || pause
 exit /b

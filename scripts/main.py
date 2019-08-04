@@ -17,21 +17,23 @@ class MainWindow(pyglet.window.Window):
         self.labels = []
         for row in self.rows:
             self.labels.append(pyglet.text.Label("%s (%s) - %s" % (
-                row["Name"], row["Folder Name"], row["Last Played"]),
+                row["Name"], os.path.basename(row["Folder Name"]), row["Last Played"]),
                 font_name="Verdana", font_size=24, x=0, y=0))
-        attrs = sorted(dir(self.labels[0]))
-        maxlen = max(len(attr) for attr in attrs)
-        for attr in attrs:
-            print("%*s\t%s" % (maxlen, attr, type(getattr(self.labels[0], attr))))
+        # attrs = sorted(dir(self.labels[0]))
+        # maxlen = max(len(attr) for attr in attrs)
+        # for attr in attrs:
+        #     print("%*s\t%s" % (maxlen, attr, type(getattr(self.labels[0], attr))))
 
     def on_draw(self):
         self.clear()
         glLoadIdentity()
+        pyglet.graphics.draw_indexed(4, GL_TRIANGLES, [0, 1, 2, 0, 2, 3],
+            ("v2i", (100, 100, 150, 100, 150, 150, 100, 150)),
+            ("c3B", (255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0)))
         padding = 10
         glTranslatef(padding, self.height-self.labels[0].font_size-padding, 0)
         for label in self.labels:
             label.draw()
-            # print(label.content_width)
             glTranslatef(0, -48, 0)
 
     def on_mouse_release(self, x, y, buttons, modifiers):
@@ -51,7 +53,7 @@ def main():
         data = nbt.nbt.NBTFile(level)
         rows.append(dict(zip(columns, (
             data["Data"]["LevelName"].value,
-            os.path.basename(os.path.dirname(level)),
+            os.path.abspath(os.path.dirname(level)),
             gameTypes[data["Data"]["Player"]["playerGameType"].value],
             datetime.fromtimestamp(data["Data"]["LastPlayed"].value/1000).strftime("%Y-%m-%d %H:%M:%S"),
             ))))
