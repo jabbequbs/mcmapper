@@ -1,13 +1,19 @@
 import nbt
 import os
 
-from .data import *
+from .data import map_colors, block_colors
 from PIL import Image
 
 
 def get_data_dir(world):
+    if type(world) is not str:
+        world = world.worldfolder
     return os.path.abspath(os.path.join(os.path.dirname(__file__),
-        "..", "..", "data", os.path.basename(world.worldfolder)))
+        "..", "..", "data", os.path.basename(world)))
+
+def get_asset_dir():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__),
+        "..", "..", "assets"))
 
 def render_map(filename, verbose=False):
     log = lambda message: None
@@ -149,17 +155,31 @@ def render_world(world):
     data_dir = get_data_dir(world)
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
+
+    renderable_regions = []
     for idx, region in enumerate(regions):
-        print("\rRendering region %d/%d..." % (idx+1, len(regions)), end="", flush=True)
+        print("\rChecking region %d/%d..." % (idx+1, len(regions)), end="", flush=True)
         x, z = region
         region = world.get_region(x, z)
         tile_file = os.path.join(data_dir, "%s.%s.png" % (x, z))
         if os.path.isfile(tile_file) and os.path.getmtime(tile_file) > os.path.getmtime(region.filename):
             tile = Image.open(tile_file)
+            result.paste(tile, ((x-xMin)*32*16, (z-zMin)*32*16))
         else:
-            tile = render_region(region)
-            tile.save(tile_file)
-        result.paste(tile, ((x-xMin)*32*16, (z-zMin)*32*16))
+            renderable_regions.append((x, z))
+    else:
+        print()
 
-    print("\nDone")
+    for idx, region in enumerate(renderable_regions):
+        print("\rRendering region %d/%d..." % (idx+1, len(renderable_regions)), end="", flush=True)
+        x, z = region
+        region = world.get_region(x, z)
+        tile_file = os.path.join(data_dir, "%s.%s.png" % (x, z))
+        tile = render_region(region)
+        tile.save(tile_file)
+        result.paste(tile, ((x-xMin)*32*16, (z-zMin)*32*16))
+    else:
+        if len(renderable_regions):
+            print()
+
     return result

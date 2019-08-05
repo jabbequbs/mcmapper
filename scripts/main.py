@@ -19,10 +19,11 @@ class MainWindow(pyglet.window.Window):
             self.labels.append(pyglet.text.Label("%s (%s) - %s" % (
                 row["Name"], os.path.basename(row["Folder Name"]), row["Last Played"]),
                 font_name="Verdana", font_size=24, x=0, y=0))
-        # attrs = sorted(dir(self.labels[0]))
+        # thing = self.labels[0]
+        # attrs = sorted(dir(thing))
         # maxlen = max(len(attr) for attr in attrs)
         # for attr in attrs:
-        #     print("%*s\t%s" % (maxlen, attr, type(getattr(self.labels[0], attr))))
+        #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
 
     def on_draw(self):
         self.clear()
@@ -38,7 +39,7 @@ class MainWindow(pyglet.window.Window):
 
     def on_mouse_release(self, x, y, buttons, modifiers):
         viewer = os.path.join(os.path.dirname(__file__), "viewer.py")
-        subprocess.Popen([sys.executable, viewer, "world24.png"])
+        subprocess.Popen([sys.executable, viewer, "world24"])
 
 
 def main():
