@@ -6,7 +6,10 @@ import pyglet
 import subprocess
 import sys
 
+import mcmapper.filesystem as fs
+
 from datetime import datetime
+from mcmapper.level import LevelInfo
 from pyglet.gl import *
 
 
@@ -39,25 +42,18 @@ class MainWindow(pyglet.window.Window):
 
     def on_mouse_release(self, x, y, buttons, modifiers):
         viewer = os.path.join(os.path.dirname(__file__), "viewer.py")
-        subprocess.Popen([sys.executable, viewer, "world24"])
+        subprocess.Popen([sys.executable, viewer, self.rows[0]["Folder Name"]])
 
 
 def main():
-    minecraft_dir = os.path.join(os.environ["APPDATA"], ".minecraft", "saves")
-    levels = (os.path.join(minecraft_dir, f, "level.dat") for f in os.listdir(minecraft_dir))
+    folders = fs.get_minecraft_savedirs()
     columns = ["Name", "Folder Name", "Mode", "Last Played"]
     gameTypes = ["Survival", "Creative", "Adventure", "Spectator"]
     rows = []
-    for level in levels:
-        if not os.path.isfile(level):
-            continue
-        data = nbt.nbt.NBTFile(level)
+    for folder in folders:
+        level = LevelInfo(folder)
         rows.append(dict(zip(columns, (
-            data["Data"]["LevelName"].value,
-            os.path.abspath(os.path.dirname(level)),
-            gameTypes[data["Data"]["Player"]["playerGameType"].value],
-            datetime.fromtimestamp(data["Data"]["LastPlayed"].value/1000).strftime("%Y-%m-%d %H:%M:%S"),
-            ))))
+            level.name, level.folder, level.game_type, level.last_played))))
     rows.sort(key=lambda row: row["Last Played"], reverse=True)
 
     window = MainWindow(rows, resizable=True, width=1024, height=768, caption="Map Viewer")

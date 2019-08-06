@@ -6,6 +6,7 @@ Prints a map of the entire world.
 import argparse
 import os
 
+from mcmapper.filesystem import get_minecraft_savedirs
 from mcmapper.mapper import render_world, missing_blocks
 
 
@@ -23,11 +24,9 @@ def main():
         args.filename += ".png"
 
     if not os.path.isdir(args.folder):
-        minecraft_saves = os.path.join(os.environ["APPDATA"], ".minecraft", "saves")
-        worlds = [f for f in os.listdir(minecraft_saves)
-            if os.path.isdir(os.path.join(minecraft_saves, f))]
+        worlds = {os.path.basename(f):f for f in get_minecraft_savedirs()}
         if args.folder in worlds:
-            args.folder = os.path.join(minecraft_saves, args.folder)
+            args.folder = worlds[args.folder]
         else:
             sys.exit("%s: invalid world.  Options are %s" % (args.folder, worlds))
 

@@ -2,18 +2,9 @@ import nbt
 import os
 
 from .data import map_colors, block_colors
+from .filesystem import get_data_dir
 from PIL import Image
 
-
-def get_data_dir(world):
-    if type(world) is not str:
-        world = world.worldfolder
-    return os.path.abspath(os.path.join(os.path.dirname(__file__),
-        "..", "..", "data", os.path.basename(world)))
-
-def get_asset_dir():
-    return os.path.abspath(os.path.join(os.path.dirname(__file__),
-        "..", "..", "assets"))
 
 def render_map(filename, verbose=False):
     log = lambda message: None

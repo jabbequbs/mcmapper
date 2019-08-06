@@ -4,16 +4,16 @@ import argparse
 import os
 import pyglet
 
+import mcmapper.filesystem as fs
+
 from glob import glob
-from mcmapper.mapper import get_data_dir, get_asset_dir
+from mcmapper.level import LevelInfo
 from pyglet.gl import *
 
 
 class SpriteManager(object):
     def __init__(self, folder):
-        asset_dir = get_asset_dir()
-        # self.black = pyglet.sprite.Sprite(img=pyglet.image.load(os.path.join(asset_dir, "black.png")))
-        # self.magenta = pyglet.sprite.Sprite(img=pyglet.image.load(os.path.join(asset_dir, "magenta.png")))
+        asset_dir = fs.get_asset_dir()
         self.folder = folder
         self.sprites = {}
         for sprite_file in glob(os.path.join(folder, "*.png")):
@@ -22,7 +22,7 @@ class SpriteManager(object):
 
     def __getitem__(self, key):
         if key not in self.sprites:
-            return None # self.black
+            return None
         result = self.sprites[key]
         if type(result) is str:
             result = pyglet.sprite.Sprite(img=pyglet.image.load(result))
@@ -35,12 +35,13 @@ class SpriteManager(object):
 class MapViewerWindow(pyglet.window.Window):
     def __init__(self, world_folder, *args, **kwargs):
         pyglet.window.Window.__init__(self, *args, **kwargs)
-        self.sprites = SpriteManager(get_data_dir(world_folder))
-        self.test_sprites = [
-            self.sprites[(0, 0)],
-            self.sprites[(0, -1)],
-            self.sprites[(0, 1)],
-        ]
+        self.sprites = SpriteManager(fs.get_data_dir(world_folder))
+        self.level = LevelInfo(world_folder)
+        # self.test_sprites = [
+        #     self.sprites[(0, 0)],
+        #     self.sprites[(0, -1)],
+        #     self.sprites[(0, 1)],
+        # ]
 
         # thing = self.sprite
         # attrs = sorted(dir(thing))
@@ -49,9 +50,15 @@ class MapViewerWindow(pyglet.window.Window):
         #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
 
         self.scale = 1.0
-        self.x = -self.width/2
-        self.y = -self.height/2
+        player = self.level.get_players()[0] # (x, y ,z)
+        self.x = player[0]-self.width/2
+        self.y = -player[2]-self.height/2
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+    def on_activate(self):
+        player = self.level.get_players()[0] # (x, y ,z)
+        self.x = player[0]-self.width/self.scale/2
+        self.y = -player[2]-self.height/self.scale/2
 
     def on_draw(self):
         self.clear()
