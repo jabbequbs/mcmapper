@@ -138,8 +138,8 @@ def render_world(world):
             zMax = z
 
     # region store 32x32 chunks, chunks are 16x16
-    width = (xMax - xMin) * 32 * 16
-    height = (zMax - zMin) * 32 * 16
+    width = (xMax - xMin + 1) * 32 * 16
+    height = (zMax - zMin + 1) * 32 * 16
 
     print("Initializing map...")
     result = Image.new("RGB", (width, height))
@@ -155,7 +155,7 @@ def render_world(world):
         tile_file = os.path.join(data_dir, "%s.%s.png" % (x, z))
         if os.path.isfile(tile_file) and os.path.getmtime(tile_file) > os.path.getmtime(region.filename):
             tile = Image.open(tile_file)
-            result.paste(tile, ((x-xMin)*32*16, (z-zMin)*32*16))
+            result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
         else:
             renderable_regions.append((x, z))
     else:
@@ -168,7 +168,7 @@ def render_world(world):
         tile_file = os.path.join(data_dir, "%s.%s.png" % (x, z))
         tile = render_region(region)
         tile.save(tile_file)
-        result.paste(tile, ((x-xMin)*32*16, (z-zMin)*32*16))
+        result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
     else:
         if len(renderable_regions):
             print()

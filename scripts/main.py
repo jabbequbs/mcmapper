@@ -22,15 +22,21 @@ class MainWindow(pyglet.window.Window):
             self.labels.append(pyglet.text.Label("%s (%s) - %s" % (
                 row["Name"], os.path.basename(row["Folder Name"]), row["Last Played"]),
                 font_name="Verdana", font_size=24, x=0, y=0))
+        self.sprite = pyglet.sprite.Sprite(
+            img=pyglet.image.load(os.path.join(fs.get_asset_dir(), "dirt.png")))
+        self.sprite.update(scale_x=16, scale_y=16)
         # thing = self.labels[0]
         # attrs = sorted(dir(thing))
         # maxlen = max(len(attr) for attr in attrs)
         # for attr in attrs:
         #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 
     def on_draw(self):
         self.clear()
         glLoadIdentity()
+        self.sprite.draw()
+
         pyglet.graphics.draw_indexed(4, GL_TRIANGLES, [0, 1, 2, 0, 2, 3],
             ("v2i", (100, 100, 150, 100, 150, 150, 100, 150)),
             ("c3B", (255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0)))
