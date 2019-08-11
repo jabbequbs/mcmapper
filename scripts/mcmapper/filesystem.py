@@ -14,7 +14,10 @@ def get_asset_dir():
         "..", "..", "assets"))
 
 def get_minecraft_basedir():
-    return os.path.join(os.environ["APPDATA"], ".minecraft", "saves")
+    if os.name == "posix":
+        return os.path.join(os.environ["HOME"], ".minecraft", "saves")
+    else:
+        return os.path.join(os.environ["APPDATA"], ".minecraft", "saves")
 
 def get_minecraft_savedirs():
     """Return the absolute paths to the various minecraft save folders"""

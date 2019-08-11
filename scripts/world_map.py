@@ -5,6 +5,7 @@ Prints a map of the entire world.
 
 import argparse
 import os
+import sys
 
 from mcmapper.filesystem import get_minecraft_savedirs
 from mcmapper.mapper import render_world, missing_blocks
