@@ -3,6 +3,8 @@
 import argparse
 import os
 import pyglet
+import subprocess
+import sys
 import threading
 
 import mcmapper.filesystem as fs
@@ -63,10 +65,10 @@ class MapViewerWindow(pyglet.window.Window):
     def render_world(self):
         self.set_caption(self.caption + " - Rendering...")
         data_dir = fs.get_data_dir(self.level.folder)
-        if not os.path.isdir(data_dir):
-            os.makedirs(data_dir)
-        world = render_world(self.level.folder)
-        world.save(os.path.join(data_dir, "world.png"), "PNG")
+        output = os.path.join(data_dir, "world.png")
+        worker = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "world_map.py"),
+            self.level.folder, output])
+        worker.wait()
         self.sprites = SpriteManager(data_dir)
         self.set_caption(self.caption[:-len(" - Rendering...")])
 
