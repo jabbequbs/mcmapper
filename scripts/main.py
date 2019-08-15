@@ -22,9 +22,10 @@ class MainWindow(pyglet.window.Window):
             self.labels.append(pyglet.text.Label("%s (%s) - %s" % (
                 row["Name"], os.path.basename(row["Folder Name"]), row["Last Played"]),
                 font_name="Verdana", font_size=24, x=0, y=0))
-        self.sprite = pyglet.sprite.Sprite(
-            img=pyglet.image.load(os.path.join(fs.get_asset_dir(), "dirt.png")))
-        self.sprite.update(scale_x=16, scale_y=16)
+        self.bg = pyglet.image.load(os.path.join(fs.get_asset_dir(), "bg.png"))
+        sprite = pyglet.sprite.Sprite(img=self.bg)
+        sprite.scale = self.width/sprite.width
+        self.bgSprite = sprite
         # thing = self.labels[0]
         # attrs = sorted(dir(thing))
         # maxlen = max(len(attr) for attr in attrs)
@@ -35,11 +36,10 @@ class MainWindow(pyglet.window.Window):
     def on_draw(self):
         self.clear()
         glLoadIdentity()
-        self.sprite.draw()
-
-        pyglet.graphics.draw_indexed(4, GL_TRIANGLES, [0, 1, 2, 0, 2, 3],
-            ("v2i", (100, 100, 150, 100, 150, 150, 100, 150)),
-            ("c3B", (255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0)))
+        self.bgSprite.draw()
+        # pyglet.graphics.draw_indexed(4, GL_TRIANGLES, [0, 1, 2, 0, 2, 3],
+        #     ("v2i", (100, 100, 150, 100, 150, 150, 100, 150)),
+        #     ("c3B", (255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0)))
         padding = 10
         glTranslatef(padding, self.height-self.labels[0].font_size-padding, 0)
         for label in self.labels:
@@ -62,7 +62,7 @@ def main():
             level.name, level.folder, level.game_type, level.last_played))))
     rows.sort(key=lambda row: row["Last Played"], reverse=True)
 
-    window = MainWindow(rows, resizable=True, width=1024, height=768, caption="Map Viewer")
+    window = MainWindow(rows, resizable=False, width=1280, height=720, caption="Map Viewer")
     pyglet.app.run()
 
 if __name__ == '__main__':

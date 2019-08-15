@@ -16,5 +16,5 @@ if not exist %VENV%\Scripts\activate.bat (
 )
 
 call %VENV%\Scripts\activate.bat
-python scripts\main.py || pause
+python scripts\viewer.py || pause
 exit /b

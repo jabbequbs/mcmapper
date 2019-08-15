@@ -9,4 +9,4 @@ if [ ! -d "python3" ]; then
     deactivate
 fi
 . python3/bin/activate
-python3 scripts/main.py
+python3 scripts/viewer.py
