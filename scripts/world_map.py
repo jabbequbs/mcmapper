@@ -35,8 +35,8 @@ def main():
     if len(missing_blocks):
         print("Missing blocks:")
         print("  " + "\n  ".join(sorted(missing_blocks.keys())))
-    print("Saving image...")
-    result.save(args.filename, "PNG")
+    # print("Saving image...")
+    # result.save(args.filename, "PNG")
     print("Done")
 
 

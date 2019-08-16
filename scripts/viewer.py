@@ -16,15 +16,14 @@ from pyglet.gl import *
 
 
 class SpriteManager(object):
-    def __init__(self, folder):
+    def __init__(self, folder, dimension):
         asset_dir = fs.get_asset_dir()
         self.folder = folder
         self.sprites = {}
-        for sprite_file in glob(os.path.join(folder, "*.png")):
-            basename = os.path.basename(sprite_file)
-            if basename != "world.png":
-                key = tuple(map(int, basename.split(".")[:2]))
-                self.sprites[key] = sprite_file
+        for sprite_file in glob(os.path.join(folder, "%s.*.png" % dimension)):
+            key = tuple(map(int, os.path.basename(sprite_file).split(".")[1:3]))
+            self.sprites[key] = sprite_file
+        print(sorted(self.sprites))
 
     def __getitem__(self, key):
         if key not in self.sprites:
@@ -42,7 +41,8 @@ class MapViewerWindow(pyglet.window.Window):
     def __init__(self, world, *args, **kwargs):
         pyglet.window.Window.__init__(self, *args, **kwargs)
         self.level = world
-        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder))
+        player = self.level.get_players()[0]
+        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         threading.Thread(target=self.render_world).start()
         # self.test_sprites = [
         #     self.sprites[(0, 0)],
@@ -57,19 +57,19 @@ class MapViewerWindow(pyglet.window.Window):
         #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
 
         self.scale = 1.0
-        player = self.level.get_players()[0] # (x, y ,z)
-        self.x = player[0]-self.width/2
-        self.y = -player[2]-self.height/2
+        self.x = player.x-self.width/2
+        self.y = -player.z-self.height/2
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 
     def render_world(self):
         self.set_caption(self.caption + " - Rendering...")
+        player = self.level.get_players()[0]
         data_dir = fs.get_data_dir(self.level.folder)
-        output = os.path.join(data_dir, "world.png")
+        output = os.path.join(data_dir, "%s.png" % player.dimension)
         worker = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "world_map.py"),
             self.level.folder, output])
         worker.wait()
-        self.sprites = SpriteManager(data_dir)
+        self.sprites = SpriteManager(data_dir, player.dimension)
         self.set_caption(self.caption[:-len(" - Rendering...")])
 
     def on_key_release(self, key, modifiers):
@@ -77,9 +77,9 @@ class MapViewerWindow(pyglet.window.Window):
             threading.Thread(target=self.render_world).start()
 
     def on_activate(self):
-        player = self.level.get_players()[0] # (x, y ,z)
-        self.x = player[0]-self.width/self.scale/2
-        self.y = -player[2]-self.height/self.scale/2
+        player = self.level.get_players()[0]
+        self.x = player.x-self.width/self.scale/2
+        self.y = -player.z-self.height/self.scale/2
 
     def on_draw(self):
         self.clear()

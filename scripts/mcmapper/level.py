@@ -9,6 +9,20 @@ from mcmapper.filesystem import get_minecraft_basedir
 
 
 game_types = ["Survival", "Creative", "Adventure", "Spectator"]
+dimensions = {-1: "nether", 0: "overworld", 1: "end"}
+dimension_folders = {
+    "nether": os.path.join("DIM-1", "region"),
+    "overworld": "region",
+    "end": os.path.join("DIM1", "region"),
+    }
+
+
+class PlayerInfo(object):
+    def __init__(self, filename):
+        playerInfo = nbt.nbt.NBTFile(filename)
+        self.dimension = dimensions[playerInfo["Dimension"].value]
+        self.x, self.y, self.z = (t.value for t in playerInfo["Pos"])
+
 
 class LevelInfo(object):
     def __init__(self, folder):
@@ -24,15 +38,14 @@ class LevelInfo(object):
             base["LastPlayed"].value/1000).strftime("%Y-%m-%d %H:%M:%S")
 
     def get_players(self):
-        result = []
-        for player_file in glob(os.path.join(self.folder, "playerdata", "*.dat")):
-            playerInfo = nbt.nbt.NBTFile(player_file)
+        filenames = glob(os.path.join(self.folder, "playerdata", "*.dat"))
+        return [PlayerInfo(f) for f in filenames]
 
-            # thing = playerInfo
-            # attrs = sorted(dir(thing))
-            # maxlen = max(len(attr) for attr in attrs)
-            # for attr in attrs:
-            #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
+    def get_regions(self, dimension):
+        return glob(os.path.join(self.folder, dimension_folders[dimension], "*.mca"))
 
-            result.append(tuple(i.value for i in playerInfo["Pos"]))
-        return result
+    def get_region(self, dimension, x, z):
+        filename = os.path.join(self.folder, dimension_folders[dimension], "r.%s.%s.mca" % (x, z))
+        if not os.path.isfile(filename):
+            raise Exception("No such region: %s(%s, %s)" % (dimension, x, z))
+        return nbt.region.RegionFile(filename)

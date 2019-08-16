@@ -3,6 +3,7 @@ import os
 
 from .data import map_colors, block_colors
 from .filesystem import get_data_dir
+from .level import LevelInfo, dimensions
 from PIL import Image
 
 
@@ -54,6 +55,7 @@ def render_chunk(chunk, layer, heightmap=False):
     # the whole thing to get back to little endian
     heights = [int(strytes[i:i+9], base=2)-1 for i in range(0, 256*9, 9)][::-1]
 
+    black = bytes((0, 0, 0))
     pixels = []
     sections = {}
     for z in range(16):
@@ -64,12 +66,18 @@ def render_chunk(chunk, layer, heightmap=False):
                 continue
             section_y = heights[pixel_idx] // 16
             if section_y not in sections:
+                if len(chunk["Level"]["Sections"]) == 0 or section_y == -1:
+                    pixels.append(black)
+                    continue
                 try:
                     section = next(section for section in chunk["Level"]["Sections"]
                         if section["Y"].value == section_y)
-                except:
-                    section = next(section for section in reversed(chunk["Level"]["Sections"])
-                        if "Palette" in section)
+                except StopIteration:
+                    try:
+                        section = next(section for section in reversed(chunk["Level"]["Sections"])
+                            if "Palette" in section)
+                    except StopIteration:
+                        raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["Level"]["Sections"]]))
                 # Find the number of bits it takes to represent the largest index in the palette (at least 4)
                 try:
                     index_len = max((4, len(bin(len(section["Palette"])-1)[2:])))
@@ -91,7 +99,7 @@ def render_chunk(chunk, layer, heightmap=False):
             block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
             if block not in block_colors:
                 missing_blocks[block] = True
-                color = block_colors["air"]
+                color = block_colors["magenta_concrete"]
             else:
                 color = block_colors[block]
             pixels.append(color)
@@ -115,10 +123,14 @@ def render_region(region):
 def render_world(world):
     print("Loading word...")
     if type(world) is str:
-        world = nbt.world.WorldFolder(world)
+        world = LevelInfo(world)
+    player = world.get_players()[0]
+    dimension = player.dimension
+    if dimension == "nether":
+        dimension = "overworld"
 
     print("Getting regions...")
-    region_files = world.get_filenames()
+    region_files = world.get_regions(dimension)
     print("Getting bounds...")
     xMin, xMax, zMin, zMax = 0, 0, 0, 0
     regions = []
@@ -143,7 +155,7 @@ def render_world(world):
 
     print("Initializing map...")
     result = Image.new("RGB", (width, height))
-    data_dir = get_data_dir(world)
+    data_dir = get_data_dir(world.folder)
     if not os.path.isdir(data_dir):
         os.makedirs(data_dir)
 
@@ -151,8 +163,8 @@ def render_world(world):
     for idx, region in enumerate(regions):
         print("\rChecking region %d/%d..." % (idx+1, len(regions)), end="", flush=True)
         x, z = region
-        region = world.get_region(x, z)
-        tile_file = os.path.join(data_dir, "%s.%s.png" % (x, z))
+        region = world.get_region(dimension, x, z)
+        tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
         if os.path.isfile(tile_file) and os.path.getmtime(tile_file) > os.path.getmtime(region.filename):
             tile = Image.open(tile_file)
             result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
@@ -164,8 +176,8 @@ def render_world(world):
     for idx, region in enumerate(renderable_regions):
         print("\rRendering region %d/%d..." % (idx+1, len(renderable_regions)), end="", flush=True)
         x, z = region
-        region = world.get_region(x, z)
-        tile_file = os.path.join(data_dir, "%s.%s.png" % (x, z))
+        region = world.get_region(dimension, x, z)
+        tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
         tile = render_region(region)
         tile.save(tile_file)
         result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
@@ -173,4 +185,7 @@ def render_world(world):
         if len(renderable_regions):
             print()
 
+    print("Saving...")
+    result_filename = os.path.join(data_dir, "%s.png" % dimension)
+    result.save(result_filename, "PNG")
     return result

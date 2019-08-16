@@ -854,7 +854,7 @@ block_colors = {
     "tube_coral_fan": bytes((63, 108, 229)),
     "tube_coral_wall_fan": bytes((63, 108, 229)),
     "turtle_egg": bytes((247, 241, 217)),
-    "vine": bytes((131, 131, 131)),
+    "vine": bytes((0, 109, 0)),
     "wall_torch": bytes((159, 127, 80)),
     "water": bytes((55, 55, 220)),
     "wet_sponge": bytes((176, 191, 76)),
