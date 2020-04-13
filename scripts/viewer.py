@@ -59,7 +59,6 @@ class MapViewerWindow(pyglet.window.Window):
         self.scale = 1.0
         self.x = player.x-self.width/2
         self.y = -player.z-self.height/2
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 
     def render_world(self):
         self.set_caption(self.caption + " - Rendering...")
@@ -92,6 +91,7 @@ class MapViewerWindow(pyglet.window.Window):
             for y in range(minY, maxY+1):
                 sprite = self.sprites[(x, y)]
                 if sprite:
+                    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                     sprite.draw()
 
         # for sprite in self.test_sprites:
