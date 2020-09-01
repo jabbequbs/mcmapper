@@ -38,6 +38,7 @@ def render_map(filename, verbose=False):
 
 
 missing_blocks = {}
+printed_height_data = 0
 def render_chunk(chunk, layer, heightmap=False):
     # Show an image of the chunk from above
 
@@ -47,13 +48,36 @@ def render_chunk(chunk, layer, heightmap=False):
         # If the heightmap isn't included, just return a black square
         return Image.frombytes("RGB", (16, 16),
             b"".join(bytes((0, 0, 0)) for _ in range(256)))
-    # Heightmap is a list of longs, convert them into one string of bytes
-    hytes = b"".join(val.to_bytes(8, "little", signed=True) for val in height_data)
-    # Convert the string of bytes into a string of bits.  This changes it from little to big endian
-    strytes = ("%*s" % (256*9, bin(int.from_bytes(hytes, "little"))[2:])).replace(" ", "0")
-    # Chop the bitstring into integers of nine bits each, and then reverse
-    # the whole thing to get back to little endian
-    heights = [int(strytes[i:i+9], base=2)-1 for i in range(0, 256*9, 9)][::-1]
+    global printed_height_data
+    if len(set(height_data)) in (1,2) and not printed_height_data:
+        print("Flattest heightmap data: ")
+        printed_height_data = 1
+        print(height_data)
+    if len(height_data) == 36: # Pre Minecraft 1.16
+        # Convert the heightmap (a list of longs) into a bitstring.  There's some endian weirdness, so the list
+        # of longs is reversed first.
+        bitstring = "".join(("%64s" % bin(h)[2:]).replace(" ", "0") for h in height_data)
+        # Chop the bitstring into integers of nine bits each, and then reverse
+        # the whole thing to get back to little endian.
+        # Subtract one from the height to get the block underneath it.
+        heights = [int(bitstring[i:i+9], base=2)-1 for i in range(0, 256*9, 9)][::-1]
+    else:
+        # In 1.16 and up, heightmaps are 37 longs, each with 7 values of 9 bits.  The last bit of each long
+        # is unused (7*9 = 63), and the last 28 bits of the last long.
+        # The heightmap for an ocean chunk looks like this:
+        #   01: 0000111111000111111000111111000111111000111111000111111000111111
+        #   02: 0000111111000111111000111111000111111000111111000111111000111111
+        #   03: 0000111111000111111000111111000111111000111111000111111000111111
+        #   ...
+        #   37: 0000000000000000000000000000000111111000111111000111111000111111
+        heights = []
+        for h in height_data:
+            bits = ("%64s" % bin(h).replace("-", "")[2:]).replace(" ", "0")
+            heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
+        if printed_height_data == 1:
+            print("Interpreted heights:")
+            print(heights)
+            printed_height_data = 2
 
     black = bytes((0, 0, 0))
     pixels = []
@@ -82,26 +106,37 @@ def render_chunk(chunk, layer, heightmap=False):
                 try:
                     index_len = max((4, len(bin(len(section["Palette"])-1)[2:])))
                 except KeyError:
-                    # print((chunk["Level"]["xPos"].value, chunk["Level"]["zPos"].value), heights[pixel_idx])
-                    # raise
-                    pixels.append(bytes((255, 255, 255)))
+                    pixels.append(black)
                     continue
-                # BlockStates is a list of longs, convert them into one string of bytes
-                blockstates = b"".join(val.to_bytes(8, "little", signed=True) for val in section["BlockStates"])
-                # Convert the string of bytes into a string of bits.  This changes it from little to big endian
-                # Each long in BlockStates will be 64 bits long
-                bits = ("%*s" % (64*len(section["BlockStates"]), bin(int.from_bytes(blockstates, "little"))[2:])).replace(" ", "0")
-                # Get the list of palette indexes and reverse it to compensate for big endianness
-                blocks = [int(bits[i:i+index_len], base=2) for i in range(0, 4096*index_len, index_len)][::-1]
+                if printed_height_data == 2:
+                    print("BlockStates:", section["BlockStates"])
+                    printed_height_data = 3
+                # BlockStates is a list of longs, each of which has some number of indices
+                blocks = []
+                for idx, bs in enumerate(section["BlockStates"]):
+                    bits = ("%64s" % bin(bs).replace("-", "")[2:]).replace(" ", "0")
+                    # Take slices of size index_len bits from the right hand side
+                    try:
+                        blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
+                    except ValueError:
+                        print("BlockStates:", section["BlockStates"])
+                        print(idx, type(bs), bs, bits)
+                        print(index_len)
+                        raise
                 sections[section_y] = (section, blocks)
+
             section, blocks = sections[section_y]
             palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
-            block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
-            if block not in block_colors:
-                missing_blocks[block] = True
+            try:
+                block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
+            except IndexError:
                 color = block_colors["magenta_concrete"]
             else:
-                color = block_colors[block]
+                if block not in block_colors:
+                    missing_blocks[block] = True
+                    color = block_colors["magenta_concrete"]
+                else:
+                    color = block_colors[block]
             pixels.append(color)
 
     return Image.frombytes("RGB", (16, 16), b"".join(pixels))

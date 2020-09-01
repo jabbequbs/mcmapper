@@ -9,7 +9,7 @@ from mcmapper.filesystem import get_minecraft_basedir
 
 
 game_types = ["Survival", "Creative", "Adventure", "Spectator"]
-dimensions = {-1: "nether", 0: "overworld", 1: "end"}
+dimensions = {-1: "nether", "minecraft:overworld": "overworld", 1: "end"}
 dimension_folders = {
     "nether": os.path.join("DIM-1", "region"),
     "overworld": "region",
