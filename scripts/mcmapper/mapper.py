@@ -38,21 +38,14 @@ def render_map(filename, verbose=False):
 
 
 missing_blocks = {}
-printed_height_data = 0
 def render_chunk(chunk, layer, heightmap=False):
     # Show an image of the chunk from above
-
     try:
         height_data = chunk["Level"]["Heightmaps"][layer]
     except:
         # If the heightmap isn't included, just return a black square
         return Image.frombytes("RGB", (16, 16),
             b"".join(bytes((0, 0, 0)) for _ in range(256)))
-    global printed_height_data
-    if len(set(height_data)) in (1,2) and not printed_height_data:
-        print("Flattest heightmap data: ")
-        printed_height_data = 1
-        print(height_data)
     if len(height_data) == 36: # Pre Minecraft 1.16
         # Convert the heightmap (a list of longs) into a bitstring.  There's some endian weirdness, so the list
         # of longs is reversed first.
@@ -74,14 +67,11 @@ def render_chunk(chunk, layer, heightmap=False):
         for h in height_data:
             bits = ("%64s" % bin(h).replace("-", "")[2:]).replace(" ", "0")
             heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
-        if printed_height_data == 1:
-            print("Interpreted heights:")
-            print(heights)
-            printed_height_data = 2
 
     black = bytes((0, 0, 0))
     pixels = []
     sections = {}
+    debug_distinct_blocks = {}
     for z in range(16):
         for x in range(16):
             pixel_idx = z*16+x
@@ -93,40 +83,35 @@ def render_chunk(chunk, layer, heightmap=False):
                 if len(chunk["Level"]["Sections"]) == 0 or section_y == -1:
                     pixels.append(black)
                     continue
-                try:
-                    section = next(section for section in chunk["Level"]["Sections"]
-                        if section["Y"].value == section_y)
-                except StopIteration:
-                    try:
-                        section = next(section for section in reversed(chunk["Level"]["Sections"])
-                            if "Palette" in section)
-                    except StopIteration:
-                        raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["Level"]["Sections"]]))
+                # try:
+                section = next(section for section in chunk["Level"]["Sections"]
+                    if section["Y"].value == section_y)
+                # except StopIteration:
+                #     try:
+                #         section = next(section for section in reversed(chunk["Level"]["Sections"])
+                #             if "Palette" in section)
+                #     except StopIteration:
+                #         raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["Level"]["Sections"]]))
                 # Find the number of bits it takes to represent the largest index in the palette (at least 4)
                 try:
-                    index_len = max((4, len(bin(len(section["Palette"])-1)[2:])))
+                    index_len = max((4, len(bin(len(section["Palette"])-1))-2))
                 except KeyError:
                     pixels.append(black)
                     continue
-                if printed_height_data == 2:
-                    print("BlockStates:", section["BlockStates"])
-                    printed_height_data = 3
                 # BlockStates is a list of longs, each of which has some number of indices
+                # Many ocean chunks will have 16 zeros terminating the list of longs
                 blocks = []
                 for idx, bs in enumerate(section["BlockStates"]):
                     bits = ("%64s" % bin(bs).replace("-", "")[2:]).replace(" ", "0")
                     # Take slices of size index_len bits from the right hand side
-                    try:
-                        blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
-                    except ValueError:
-                        print("BlockStates:", section["BlockStates"])
-                        print(idx, type(bs), bs, bits)
-                        print(index_len)
-                        raise
+                    blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
                 sections[section_y] = (section, blocks)
 
+            # Get the chunk section and block states
             section, blocks = sections[section_y]
+            # The block state is an index into the palette
             palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
+            debug_distinct_blocks[(section_y, palette_idx)] = True
             try:
                 block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
             except IndexError:
@@ -156,7 +141,7 @@ def render_region(region):
 
 
 def render_world(world):
-    print("Loading word...")
+    print("Loading world...")
     if type(world) is str:
         world = LevelInfo(world)
     player = world.get_players()[0]
@@ -220,7 +205,6 @@ def render_world(world):
         if len(renderable_regions):
             print()
 
-    print("Saving...")
-    result_filename = os.path.join(data_dir, "%s.png" % dimension)
+    print("Saving world map...")
+    result_filename = os.path.join(data_dir, "_%s.png" % dimension)
     result.save(result_filename, "PNG")
-    return result

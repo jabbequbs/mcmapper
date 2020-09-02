@@ -3,7 +3,6 @@
 import argparse
 import os
 import pyglet
-import subprocess
 import sys
 import threading
 
@@ -11,7 +10,7 @@ import mcmapper.filesystem as fs
 
 from glob import glob
 from mcmapper.level import LevelInfo
-from mcmapper.mapper import render_world
+from mcmapper.mapper import render_world, missing_blocks
 from pyglet.gl import *
 
 
@@ -43,7 +42,8 @@ class MapViewerWindow(pyglet.window.Window):
         self.level = world
         player = self.level.get_players()[0]
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
-        threading.Thread(target=self.render_world).start()
+        self.render_thread = threading.Thread(target=self.render_world)
+        self.render_thread.start()
         # self.test_sprites = [
         #     self.sprites[(0, 0)],
         #     self.sprites[(0, -1)],
@@ -57,25 +57,29 @@ class MapViewerWindow(pyglet.window.Window):
         #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
 
         self.scale = 1.0
+        # Center the window on the player location
         self.x = player.x-self.width/2
         self.y = -player.z-self.height/2
 
     def render_world(self):
         self.set_caption(self.caption + " - Rendering...")
         player = self.level.get_players()[0]
-        data_dir = fs.get_data_dir(self.level.folder)
-        output = os.path.join(data_dir, "%s.png" % player.dimension)
-        worker = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "world_map.py"),
-            self.level.folder, output])
-        worker.wait()
-        self.sprites = SpriteManager(data_dir, player.dimension)
+        render_world(self.level.folder)
+        if len(missing_blocks):
+            print("Missing blocks:")
+            print("  " + "\n  ".join(sorted(missing_blocks.keys())))
+        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.set_caption(self.caption[:-len(" - Rendering...")])
+        self.render_thread = None
+        # TODO: trigger re-render of map
 
     def on_key_release(self, key, modifiers):
         if key == ord("r"):
-            threading.Thread(target=self.render_world).start()
+            self.render_thread = threading.Thread(target=self.render_world)
+            self.render_thread.start()
 
     def on_activate(self):
+        # Center the window on the player location
         player = self.level.get_players()[0]
         self.x = player.x-self.width/self.scale/2
         self.y = -player.z-self.height/self.scale/2
@@ -101,17 +105,38 @@ class MapViewerWindow(pyglet.window.Window):
         self.x -= dx/self.scale
         self.y -= dy/self.scale
 
+    def on_mouse_release(self, x, y, button, modifiers):
+        """Select a chunk for debugging"""
+        if modifiers & 2: # CTRL is pressed
+            world_x = self.x + (self.width*(x/self.width)/self.scale)
+            world_z = -(self.y + (self.height*(y/self.height)/self.scale))
+            region_x = int(world_x // 512)
+            region_z = int(world_z // 512)
+            region_origin_x = region_x * 512
+            region_origin_z = region_z * 512
+            chunk_x = (world_x - region_origin_x) // 16
+            chunk_z = (world_z - region_origin_z) // 16
+            chunk = self.level.get_region("overworld", region_x, region_z).get_chunk(chunk_x, chunk_z)
+            print((world_x, world_z), (region_x, region_z))
+            binn = lambda i: ("%64s" % bin(i).replace("-", "")[2:]).replace(" ", "0")
+            print("Heightmap:")
+            print("\n".join(binn(e) for e in chunk["Level"]["Heightmaps"]["WORLD_SURFACE"]))
+            # sea level section
+            section = next(section for section in chunk["Level"]["Sections"] if section["Y"].value == 3)
+            print("Palette:")
+            print("\n".join(str(e) for e in section["Palette"]))
+            print("Blocks:")
+            print("\n".join(binn(e) for e in section["BlockStates"]))
+            print(modifiers)
+            print(bin(len(section["Palette"])), len(bin(len(section["Palette"]))))
+            # import pdb; pdb.set_trace()
+
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         mouse_x = self.x + x/self.scale
         mouse_y = self.y + y/self.scale
         self.scale *= pow(1.1, scroll_y)
         self.x = mouse_x - x/self.scale
         self.y = mouse_y - y/self.scale
-
-    # def on_mouse_release(self, x, y, buttons, modifiers):
-    #     minX, maxX, minY, maxY = self.get_tile_bounds()
-    #     print("X:", (minX, maxX), maxX-minX)
-    #     print("Y:", (minY, maxY), maxY-minY)
 
     def get_tile_bounds(self):
         """Return the tile indexes for the current viewport"""
