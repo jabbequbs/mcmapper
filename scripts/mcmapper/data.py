@@ -355,6 +355,7 @@ block_colors = {
     "crafting_table": bytes((175, 143, 85)),
     "creeper_head": bytes((73, 55, 44)),
     "creeper_wall_head": bytes((73, 55, 44)),
+    "crying_obsidian": bytes((6, 16, 11)),
     "cut_red_sandstone": bytes((192, 104, 34)),
     "cut_red_sandstone_slab": bytes((187, 102, 34)),
     "cut_sandstone": bytes((218, 210, 163)),

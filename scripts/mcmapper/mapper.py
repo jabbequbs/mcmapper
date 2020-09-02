@@ -46,32 +46,23 @@ def render_chunk(chunk, layer, heightmap=False):
         # If the heightmap isn't included, just return a black square
         return Image.frombytes("RGB", (16, 16),
             b"".join(bytes((0, 0, 0)) for _ in range(256)))
-    if len(height_data) == 36: # Pre Minecraft 1.16
-        # Convert the heightmap (a list of longs) into a bitstring.  There's some endian weirdness, so the list
-        # of longs is reversed first.
-        bitstring = "".join(("%64s" % bin(h)[2:]).replace(" ", "0") for h in height_data)
-        # Chop the bitstring into integers of nine bits each, and then reverse
-        # the whole thing to get back to little endian.
-        # Subtract one from the height to get the block underneath it.
-        heights = [int(bitstring[i:i+9], base=2)-1 for i in range(0, 256*9, 9)][::-1]
-    else:
-        # In 1.16 and up, heightmaps are 37 longs, each with 7 values of 9 bits.  The last bit of each long
-        # is unused (7*9 = 63), and the last 28 bits of the last long.
-        # The heightmap for an ocean chunk looks like this:
-        #   01: 0000111111000111111000111111000111111000111111000111111000111111
-        #   02: 0000111111000111111000111111000111111000111111000111111000111111
-        #   03: 0000111111000111111000111111000111111000111111000111111000111111
-        #   ...
-        #   37: 0000000000000000000000000000000111111000111111000111111000111111
-        heights = []
-        for h in height_data:
-            bits = ("%64s" % bin(h).replace("-", "")[2:]).replace(" ", "0")
-            heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
+    # In 1.16 and up, heightmaps are 37 longs, each with 7 values of 9 bits.  The last bit of each long
+    # is unused (7*9 = 63), and the last 28 bits of the last long.
+    # The heightmap for an ocean chunk looks like this:
+    #   01: 0000111111000111111000111111000111111000111111000111111000111111
+    #   02: 0000111111000111111000111111000111111000111111000111111000111111
+    #   03: 0000111111000111111000111111000111111000111111000111111000111111
+    #   ...
+    #   37: 0000000000000000000000000000000111111000111111000111111000111111
+    heights = []
+    for h in height_data:
+        # Can't use `bin` by itself since it only handles unsigned values
+        bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in h.to_bytes(8, "big", signed=True))
+        heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
 
     black = bytes((0, 0, 0))
     pixels = []
     sections = {}
-    debug_distinct_blocks = {}
     for z in range(16):
         for x in range(16):
             pixel_idx = z*16+x
@@ -83,15 +74,15 @@ def render_chunk(chunk, layer, heightmap=False):
                 if len(chunk["Level"]["Sections"]) == 0 or section_y == -1:
                     pixels.append(black)
                     continue
-                # try:
-                section = next(section for section in chunk["Level"]["Sections"]
-                    if section["Y"].value == section_y)
-                # except StopIteration:
-                #     try:
-                #         section = next(section for section in reversed(chunk["Level"]["Sections"])
-                #             if "Palette" in section)
-                #     except StopIteration:
-                #         raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["Level"]["Sections"]]))
+                try:
+                    section = next(section for section in chunk["Level"]["Sections"]
+                        if section["Y"].value == section_y)
+                except StopIteration:
+                    try:
+                        section = next(section for section in reversed(chunk["Level"]["Sections"])
+                            if "Palette" in section)
+                    except StopIteration:
+                        raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["Level"]["Sections"]]))
                 # Find the number of bits it takes to represent the largest index in the palette (at least 4)
                 try:
                     index_len = max((4, len(bin(len(section["Palette"])-1))-2))
@@ -102,7 +93,8 @@ def render_chunk(chunk, layer, heightmap=False):
                 # Many ocean chunks will have 16 zeros terminating the list of longs
                 blocks = []
                 for idx, bs in enumerate(section["BlockStates"]):
-                    bits = ("%64s" % bin(bs).replace("-", "")[2:]).replace(" ", "0")
+                    # Can't use `bin` by itself since it only handles unsigned values
+                    bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in bs.to_bytes(8, "big", signed=True))
                     # Take slices of size index_len bits from the right hand side
                     blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
                 sections[section_y] = (section, blocks)
@@ -111,7 +103,6 @@ def render_chunk(chunk, layer, heightmap=False):
             section, blocks = sections[section_y]
             # The block state is an index into the palette
             palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
-            debug_distinct_blocks[(section_y, palette_idx)] = True
             try:
                 block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
             except IndexError:
