@@ -45,17 +45,6 @@ class MapViewerWindow(pyglet.window.Window):
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.render_thread = threading.Thread(target=self.render_world)
         self.render_thread.start()
-        # self.test_sprites = [
-        #     self.sprites[(0, 0)],
-        #     self.sprites[(0, -1)],
-        #     self.sprites[(0, 1)],
-        # ]
-
-        # thing = self.sprite
-        # attrs = sorted(dir(thing))
-        # maxlen = max(len(attr) for attr in attrs)
-        # for attr in attrs:
-        #     print("%*s\t%s" % (maxlen, attr, type(getattr(thing, attr))))
 
         self.scale = 1.0
         # Center the window on the player location
