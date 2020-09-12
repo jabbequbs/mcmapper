@@ -6,6 +6,7 @@ import pyglet
 import sys
 import threading
 import cProfile
+import subprocess
 
 import mcmapper.filesystem as fs
 
@@ -53,16 +54,14 @@ class MapViewerWindow(pyglet.window.Window):
 
     def render_world(self):
         self.set_caption(self.caption + " - Rendering...")
+        # Rendering in a subprocess keeps the main map window more responsive
+        worker = subprocess.Popen([sys.executable, __file__, "--render", self.level.folder])
+        worker.wait()
         player = self.level.get_players()[0]
-        # cProfile.runctx("render_world(self.level.folder)", globals(), locals())
-        render_world(self.level.folder)
-        if len(missing_blocks):
-            print("Missing blocks:")
-            print("  " + "\n  ".join(sorted(missing_blocks.keys())))
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.set_caption(self.caption[:-len(" - Rendering...")])
         self.render_thread = None
-        # TODO: trigger re-render of map
+        # TODO: trigger re-draw of map
 
     def on_key_release(self, key, modifiers):
         if key == ord("r"):
@@ -139,6 +138,8 @@ class MapViewerWindow(pyglet.window.Window):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("world", nargs="?")
+    parser.add_argument("--render", action="store_true",
+        help="Regenerate the tiles and world map for the specified world")
     args = parser.parse_args()
 
     if args.world:
@@ -147,6 +148,13 @@ def main():
         folders = [LevelInfo(f) for f in fs.get_minecraft_savedirs()]
         folders.sort(key=lambda f: f.last_played)
         args.world = folders[-1]
+    if args.render:
+        # cProfile.runctx("render_world(args.world.folder)", globals(), locals())
+        render_world(args.world.folder)
+        if len(missing_blocks):
+            print("Missing blocks:")
+            print("  " + "\n  ".join(sorted(missing_blocks.keys())))
+        return
 
     window = MapViewerWindow(args.world,
         resizable=True, width=1024, height=768, caption="Map Viewer - %s" % args.world.name)
