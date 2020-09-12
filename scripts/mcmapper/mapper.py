@@ -174,7 +174,11 @@ def render_world(world):
     for idx, region in enumerate(regions):
         print("\rChecking region %d/%d..." % (idx+1, len(regions)), end="", flush=True)
         x, z = region
-        region = world.get_region(dimension, x, z)
+        try:
+            region = world.get_region(dimension, x, z)
+        except Exception as e:
+            print("\n%s" % e)
+            continue
         tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
         if os.path.isfile(tile_file) and os.path.getmtime(tile_file) > os.path.getmtime(region.filename):
             tile = Image.open(tile_file)

@@ -14,6 +14,7 @@ from glob import glob
 from mcmapper.level import LevelInfo
 from mcmapper.mapper import render_world, missing_blocks
 from pyglet.gl import *
+from pyglet import shapes
 
 
 class SpriteManager(object):
@@ -44,19 +45,25 @@ class MapViewerWindow(pyglet.window.Window):
         self.level = world
         player = self.level.get_players()[0]
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
-        self.render_thread = threading.Thread(target=self.render_world)
-        self.render_thread.start()
+        threading.Thread(target=self.render_world).start()
+        self.player_location = (player.x, player.z)
+        self.indicator = pyglet.sprite.Sprite(img=pyglet.image.load(
+            os.path.join(os.path.dirname(__file__), "mcmapper", "indicator.png")))
 
         self.scale = 1.0
         # Center the window on the player location
         self.x = player.x-self.width/2
         self.y = -player.z-self.height/2
+        print("window top left:", (self.x, self.y))
+        print("player location:", self.player_location)
 
     def render_world(self):
+        if getattr(self, "worker", None) is not None:
+            return
         self.set_caption(self.caption + " - Rendering...")
         # Rendering in a subprocess keeps the main map window more responsive
-        worker = subprocess.Popen([sys.executable, __file__, "--render", self.level.folder])
-        worker.wait()
+        self.worker = subprocess.Popen([sys.executable, __file__, "--render", self.level.folder])
+        self.worker.wait()
         player = self.level.get_players()[0]
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.set_caption(self.caption.replace(" - Rendering...", ""))
@@ -70,6 +77,7 @@ class MapViewerWindow(pyglet.window.Window):
         elif key == ord("p"):
             # Center the window on the player location
             player = self.level.get_players()[0]
+            self.player_location = (player.x, player.z)
             self.x = player.x-self.width/self.scale/2
             self.y = -player.z-self.height/self.scale/2
 
@@ -86,6 +94,10 @@ class MapViewerWindow(pyglet.window.Window):
                 if sprite:
                     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                     sprite.draw()
+        self.indicator.x = self.scale*(self.player_location[0]-self.x)
+        self.indicator.y = self.scale*(self.player_location[1]+self.y)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        self.indicator.draw()
 
         # for sprite in self.test_sprites:
         #     sprite.draw()
@@ -96,6 +108,7 @@ class MapViewerWindow(pyglet.window.Window):
 
     def on_mouse_release(self, x, y, button, modifiers):
         """Select a chunk for debugging"""
+        print("mouse click:", (x, y))
         if modifiers & 2: # CTRL is pressed
             world_x = self.x + (self.width*(x/self.width)/self.scale)
             world_z = -(self.y + (self.height*(y/self.height)/self.scale))
