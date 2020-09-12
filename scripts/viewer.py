@@ -59,9 +59,9 @@ class MapViewerWindow(pyglet.window.Window):
         worker.wait()
         player = self.level.get_players()[0]
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
-        self.set_caption(self.caption[:-len(" - Rendering...")])
+        self.set_caption(self.caption.replace(" - Rendering...", ""))
         self.render_thread = None
-        # TODO: trigger re-draw of map
+        # TODO: trigger self.on_draw
 
     def on_key_release(self, key, modifiers):
         if key == ord("r"):
