@@ -196,7 +196,10 @@ def render_world(world):
         x, z = region
         region = world.get_region(dimension, x, z)
         tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
-        tile = render_region(region)
+        try:
+            tile = render_region(region)
+        except Exception as e:
+            print("Error rendering region %s: %s" % (str((x, z)), e))
         tile.save(tile_file)
         result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
     print()

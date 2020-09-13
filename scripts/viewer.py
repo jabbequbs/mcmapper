@@ -43,7 +43,7 @@ class MapViewerWindow(pyglet.window.Window):
         pyglet.window.Window.__init__(self, *args, **kwargs)
         self.level = world
         player = self.level.get_players()[0]
-        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
+        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), "overworld")
         threading.Thread(target=self.render_world).start()
         self.player_location = (player.x, player.z)
         self.indicator = pyglet.sprite.Sprite(img=pyglet.image.load(
@@ -64,7 +64,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.worker = subprocess.Popen([sys.executable, __file__, "--render", self.level.folder])
         self.worker.wait()
         player = self.level.get_players()[0]
-        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
+        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), "overworld")
         self.set_caption(self.caption.replace(" - Rendering...", ""))
         self.render_thread = None
         # TODO: trigger self.on_draw
