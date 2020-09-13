@@ -91,18 +91,18 @@ class MapViewerWindow(pyglet.window.Window):
             self.scale *= pow(1.1, scroll_y)
             self.x = mouse_x - self.width/2/self.scale
             self.y = mouse_y - self.height/2/self.scale
-        elif key == KEY.LEFT or key == key.RIGHT:
-            dx = self.width/4
+        elif key == KEY.LEFT or key == KEY.RIGHT:
+            dx = self.width/self.scale/4
             dx = -dx if key == KEY.LEFT else dx
             self.x += dx
             if modifiers & KEY.MOD_CTRL:
                 self.x += dx
         elif key == KEY.UP or key == KEY.DOWN:
-            dy = self.height/4
+            dy = self.height/self.scale/4
             dy = -dy if key == KEY.UP else dy
-            self.y += dy
+            self.y -= dy
             if modifiers & KEY.MOD_CTRL:
-                self.y += dy
+                self.y -= dy
         else:
             print("Unhandled key: %s,%s" % (key, modifiers))
 

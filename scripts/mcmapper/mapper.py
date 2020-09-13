@@ -189,6 +189,7 @@ def render_world(world):
         print()
 
     if len(renderable_regions) == 0:
+        print("No regions to render")
         return
     for idx, region in enumerate(renderable_regions):
         print("\rRendering region %d/%d..." % (idx+1, len(renderable_regions)), end="", flush=True)
