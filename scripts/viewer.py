@@ -14,7 +14,7 @@ from glob import glob
 from mcmapper.level import LevelInfo
 from mcmapper.mapper import render_world, missing_blocks
 from pyglet.gl import *
-from pyglet import shapes
+from pyglet.window import key as KEY
 
 
 class SpriteManager(object):
@@ -25,7 +25,6 @@ class SpriteManager(object):
         for sprite_file in glob(os.path.join(folder, "%s.*.png" % dimension)):
             key = tuple(map(int, os.path.basename(sprite_file).split(".")[1:3]))
             self.sprites[key] = sprite_file
-        print(sorted(self.sprites))
 
     def __getitem__(self, key):
         if key not in self.sprites:
@@ -49,13 +48,13 @@ class MapViewerWindow(pyglet.window.Window):
         self.player_location = (player.x, player.z)
         self.indicator = pyglet.sprite.Sprite(img=pyglet.image.load(
             os.path.join(os.path.dirname(__file__), "mcmapper", "indicator.png")))
+        self.indicator.x = self.player_location[0]
+        self.indicator.y = -self.player_location[1]
 
         self.scale = 1.0
         # Center the window on the player location
         self.x = player.x-self.width/2
         self.y = -player.z-self.height/2
-        print("window top left:", (self.x, self.y))
-        print("player location:", self.player_location)
 
     def render_world(self):
         if getattr(self, "worker", None) is not None:
@@ -71,15 +70,41 @@ class MapViewerWindow(pyglet.window.Window):
         # TODO: trigger self.on_draw
 
     def on_key_release(self, key, modifiers):
-        if key == ord("r"):
+        if key == KEY.R:
             self.render_thread = threading.Thread(target=self.render_world)
             self.render_thread.start()
-        elif key == ord("p"):
+        elif key == KEY.P:
             # Center the window on the player location
             player = self.level.get_players()[0]
             self.player_location = (player.x, player.z)
             self.x = player.x-self.width/self.scale/2
             self.y = -player.z-self.height/self.scale/2
+            self.indicator.x = self.player_location[0]
+            self.indicator.x = -self.player_location[1]
+        elif key == KEY.I:
+            print("window top left:", (self.x, self.y))
+            print("player location:", self.player_location)
+        elif key == KEY.PAGEUP or key == KEY.PAGEDOWN: # page up or page down
+            scroll_y = -1 if key == KEY.PAGEDOWN else 1
+            mouse_x = self.x + self.width/2/self.scale
+            mouse_y = self.y + self.height/2/self.scale
+            self.scale *= pow(1.1, scroll_y)
+            self.x = mouse_x - self.width/2/self.scale
+            self.y = mouse_y - self.height/2/self.scale
+        elif key == KEY.LEFT or key == key.RIGHT:
+            dx = self.width/4
+            dx = -dx if key == KEY.LEFT else dx
+            self.x += dx
+            if modifiers & KEY.MOD_CTRL:
+                self.x += dx
+        elif key == KEY.UP or key == KEY.DOWN:
+            dy = self.height/4
+            dy = -dy if key == KEY.UP else dy
+            self.y += dy
+            if modifiers & KEY.MOD_CTRL:
+                self.y += dy
+        else:
+            print("Unhandled key: %s,%s" % (key, modifiers))
 
     def on_draw(self):
         self.clear()
@@ -94,8 +119,6 @@ class MapViewerWindow(pyglet.window.Window):
                 if sprite:
                     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                     sprite.draw()
-        self.indicator.x = self.scale*(self.player_location[0]-self.x)
-        self.indicator.y = self.scale*(self.player_location[1]+self.y)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         self.indicator.draw()
 

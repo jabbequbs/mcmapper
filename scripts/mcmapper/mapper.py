@@ -188,6 +188,8 @@ def render_world(world):
     else:
         print()
 
+    if len(renderable_regions) == 0:
+        return
     for idx, region in enumerate(renderable_regions):
         print("\rRendering region %d/%d..." % (idx+1, len(renderable_regions)), end="", flush=True)
         x, z = region
@@ -196,9 +198,7 @@ def render_world(world):
         tile = render_region(region)
         tile.save(tile_file)
         result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
-    else:
-        if len(renderable_regions):
-            print()
+    print()
 
     print("Saving world map...")
     result_filename = os.path.join(data_dir, "_%s.png" % dimension)
