@@ -80,7 +80,7 @@ class MapViewerWindow(pyglet.window.Window):
             self.x = player.x-self.width/self.scale/2
             self.y = -player.z-self.height/self.scale/2
             self.indicator.x = self.player_location[0]
-            self.indicator.x = -self.player_location[1]
+            self.indicator.z = -self.player_location[1]
         elif key == KEY.I:
             print("window top left:", (self.x, self.y))
             print("player location:", self.player_location)
