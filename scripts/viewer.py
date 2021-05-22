@@ -67,6 +67,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), "overworld")
         self.set_caption(self.caption.replace(" - Rendering...", ""))
         self.render_thread = None
+        self.worker = None
         # TODO: trigger self.on_draw
 
     def on_key_release(self, key, modifiers):
@@ -122,12 +123,33 @@ class MapViewerWindow(pyglet.window.Window):
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         self.indicator.draw()
 
+        glLoadIdentity()
+
+        spacing = 20
+        btn_height = 50
+        label = pyglet.text.Label("REFRESH MAP", bold=True, color=(0,0,0, 255), anchor_y="center")
+        spacing = label.content_height/2
+        btn_height = label.content_height*2
+        label.x = spacing*2
+        label.y = self.height-spacing-(btn_height/2)
+        render_btn = pyglet.shapes.Rectangle(spacing, self.height-btn_height-spacing,
+            label.content_width+spacing+spacing,
+            btn_height, color=(255,255,255))
+        render_btn.draw()
+        # pyglet.shapes.Rectangle(label.x, label.y, label.content_width, label.height,
+        #     color=(255,0,0)).draw()
+        label.draw()
+
+        find_btn = pyglet.shapes.Rectangle(spacing, self.height-spacing-btn_height-spacing-btn_height,
+            btn_height, btn_height, color=(255,255,255))
+        find_btn.draw()
+
         # for sprite in self.test_sprites:
         #     sprite.draw()
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
-        self.x -= dx/self.scale
-        self.y -= dy/self.scale
+        self.x -= int(dx/self.scale)
+        self.y -= int(dy/self.scale)
 
     def on_mouse_release(self, x, y, button, modifiers):
         """Select a chunk for debugging"""
@@ -159,8 +181,8 @@ class MapViewerWindow(pyglet.window.Window):
         mouse_x = self.x + x/self.scale
         mouse_y = self.y + y/self.scale
         self.scale *= pow(1.1, scroll_y)
-        self.x = mouse_x - x/self.scale
-        self.y = mouse_y - y/self.scale
+        self.x = int(mouse_x - x/self.scale)
+        self.y = int(mouse_y - y/self.scale)
 
     def get_tile_bounds(self):
         """Return the tile indexes for the current viewport"""
