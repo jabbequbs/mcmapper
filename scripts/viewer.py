@@ -44,17 +44,49 @@ class MapViewerWindow(pyglet.window.Window):
         self.level = world
         player = self.level.get_players()[0]
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
-        threading.Thread(target=self.render_world).start()
         self.player_location = (player.x, player.z)
         self.indicator = pyglet.sprite.Sprite(img=pyglet.image.load(
             os.path.join(os.path.dirname(__file__), "mcmapper", "indicator.png")))
         self.indicator.x = self.player_location[0]
         self.indicator.y = -self.player_location[1]
-
-        self.scale = 1.0
+        self.sprite_lock = threading.Lock()
+        self.scale = 2.0
         # Center the window on the player location
-        self.x = player.x-self.width/2
-        self.y = -player.z-self.height/2
+        self.x = player.x-self.width/(2*self.scale)
+        self.y = -player.z-self.height/(2*self.scale)
+        self.gui = self.setup_gui()
+
+        threading.Thread(target=self.render_world).start()
+
+    def setup_gui(self):
+        spacing = None
+        btn_height = None
+        self.gui = pyglet.graphics.Batch()
+        parent = pyglet.graphics.Group()
+        background = pyglet.graphics.OrderedGroup(0, parent)
+        foreground = pyglet.graphics.OrderedGroup(1, parent)
+        self.button_regions = {}
+        self.rectangles = {}
+        self.pressed_button = None
+        y = self.height
+        for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE WORLD", "CHANGE DIMENSION"):
+            label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center",
+                group=foreground, batch=self.gui)
+            if spacing is None:
+                spacing = label.content_height/2
+                btn_height = label.content_height*2
+            y -= spacing+btn_height
+            label.x = spacing*2
+            label.y = y + btn_height/2
+            xMin, yMin, xMax, yMax = (spacing, y, label.content_width+spacing*3, y+btn_height)
+            self.button_regions[(xMin, yMin, xMax, yMax)] = text
+            pyglet.shapes.Line(xMin, yMin, xMax, yMin, 5, color=(0,0,0), batch=self.gui, group=foreground)
+            pyglet.shapes.Line(xMin, yMin, xMin, yMax, 5, color=(0,0,0), batch=self.gui, group=foreground)
+            pyglet.shapes.Line(xMin, yMax, xMax, yMax, 5, color=(0,0,0), batch=self.gui, group=foreground)
+            pyglet.shapes.Line(xMax, yMin, xMax, yMax, 5, color=(0,0,0), batch=self.gui, group=foreground)
+            self.rectangles[text] = pyglet.shapes.Rectangle(xMin, yMin, xMax-xMin, yMax-yMin,
+                color=(192,192,192), batch=self.gui, group=background)
+        return self.gui
 
     def render_world(self):
         if getattr(self, "worker", None) is not None:
@@ -64,25 +96,13 @@ class MapViewerWindow(pyglet.window.Window):
         self.worker = subprocess.Popen([sys.executable, __file__, "--render", self.level.folder])
         self.worker.wait()
         player = self.level.get_players()[0]
-        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
+        with self.sprite_lock:
+            self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.set_caption(self.caption.replace(" - Rendering...", ""))
-        self.render_thread = None
         self.worker = None
-        # TODO: trigger self.on_draw
 
     def on_key_release(self, key, modifiers):
-        if key == KEY.R:
-            self.render_thread = threading.Thread(target=self.render_world)
-            self.render_thread.start()
-        elif key == KEY.P:
-            # Center the window on the player location
-            player = self.level.get_players()[0]
-            self.player_location = (player.x, player.z)
-            self.x = player.x-self.width/self.scale/2
-            self.y = -player.z-self.height/self.scale/2
-            self.indicator.x = self.player_location[0]
-            self.indicator.z = -self.player_location[1]
-        elif key == KEY.I:
+        if key == KEY.I:
             print("window top left:", (self.x, self.y))
             print("player location:", self.player_location)
         elif key == KEY.PAGEUP or key == KEY.PAGEDOWN: # page up or page down
@@ -114,44 +134,50 @@ class MapViewerWindow(pyglet.window.Window):
         glTranslatef(-self.x, -self.y, 0)
 
         minX, maxX, minY, maxY = self.get_tile_bounds()
-        for x in range(minX, maxX+1):
-            for y in range(minY, maxY+1):
-                sprite = self.sprites[(x, y)]
-                if sprite:
-                    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-                    sprite.draw()
+        with self.sprite_lock:
+            for x in range(minX, maxX+1):
+                for y in range(minY, maxY+1):
+                    sprite = self.sprites[(x, y)]
+                    if sprite:
+                        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+                        sprite.draw()
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         self.indicator.draw()
 
         glLoadIdentity()
-
-        spacing = 20
-        btn_height = 50
-        label = pyglet.text.Label("REFRESH MAP", bold=True, color=(0,0,0, 255), anchor_y="center")
-        spacing = label.content_height/2
-        btn_height = label.content_height*2
-        label.x = spacing*2
-        label.y = self.height-spacing-(btn_height/2)
-        render_btn = pyglet.shapes.Rectangle(spacing, self.height-btn_height-spacing,
-            label.content_width+spacing+spacing,
-            btn_height, color=(255,255,255))
-        render_btn.draw()
-        # pyglet.shapes.Rectangle(label.x, label.y, label.content_width, label.height,
-        #     color=(255,0,0)).draw()
-        label.draw()
-
-        find_btn = pyglet.shapes.Rectangle(spacing, self.height-spacing-btn_height-spacing-btn_height,
-            btn_height, btn_height, color=(255,255,255))
-        find_btn.draw()
-
-        # for sprite in self.test_sprites:
-        #     sprite.draw()
+        self.gui.draw()
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
-        self.x -= int(dx/self.scale)
-        self.y -= int(dy/self.scale)
+        if self.pressed_button:
+            return
+        self.x -= dx/self.scale
+        self.y -= dy/self.scale
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        for region, command in self.button_regions.items():
+            xMin, yMin, xMax, yMax = region
+            if xMin < x < xMax and yMin < y < yMax:
+                self.pressed_button = command
+                self.rectangles[command].color = (255,255,255)
 
     def on_mouse_release(self, x, y, button, modifiers):
+        for region, command in self.button_regions.items():
+            xMin, yMin, xMax, yMax = region
+            if command == self.pressed_button and xMin < x < xMax and yMin < y < yMax:
+                if command == "REFRESH MAP":
+                    threading.Thread(target=self.render_world).start()
+                elif command == "LOCATE PLAYER":
+                    player = self.level.get_players()[0]
+                    self.player_location = (player.x, player.z)
+                    self.x = player.x-self.width/self.scale/2
+                    self.y = -player.z-self.height/self.scale/2
+                    self.indicator.x = self.player_location[0]
+                    self.indicator.z = -self.player_location[1]
+
+        if self.pressed_button:
+            self.rectangles[self.pressed_button].color = (192, 192, 192)
+            self.pressed_button = None
+
         """Select a chunk for debugging"""
         print("mouse click:", (x, y))
         if modifiers & 2: # CTRL is pressed
@@ -181,8 +207,8 @@ class MapViewerWindow(pyglet.window.Window):
         mouse_x = self.x + x/self.scale
         mouse_y = self.y + y/self.scale
         self.scale *= pow(1.1, scroll_y)
-        self.x = int(mouse_x - x/self.scale)
-        self.y = int(mouse_y - y/self.scale)
+        self.x = mouse_x - x/self.scale
+        self.y = mouse_y - y/self.scale
 
     def get_tile_bounds(self):
         """Return the tile indexes for the current viewport"""
