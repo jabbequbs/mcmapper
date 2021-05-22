@@ -55,7 +55,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.x = player.x-self.width/(2*self.scale)
         self.y = -player.z-self.height/(2*self.scale)
         self.gui = self.setup_gui()
-
+        self.progress = None
         threading.Thread(target=self.render_world).start()
 
     def setup_gui(self):
