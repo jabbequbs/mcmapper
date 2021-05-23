@@ -23,5 +23,6 @@ with jar.open("assets/minecraft/textures/block/cobblestone.png") as f:
 * Allow selection of alternate worlds from within the app
 * Allow selection of alternate dimensions from within the app
   * Render the Nether somehow (probably just a horizontal slice at the lava level)
+* Allow locating different players for multiplayer maps
 * Move GUI rendering into batches
-* Speed up actual rendering process
+* Speed up map rendering process
