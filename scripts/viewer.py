@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+"""
+TODO:
+- move buttons/progress bar into pyglet.graphics.Batch instances
+- implement changing worlds at runtime instead of just at launch
+- implement changing dimensions (need to handle dimensions without player coords)
+- speed up the actual tile rendering process (implement in D?  sounds like fun)
+"""
+
+
 import argparse
 import os
 import pyglet
@@ -60,19 +69,18 @@ class MapViewerWindow(pyglet.window.Window):
         self.set_progress(None)
         self.cancel_render = False
         pyglet.clock.schedule_interval(self.on_draw, 0.5)
+        self.workers = []
         self.render_thread = threading.Thread(target=self.render_world)
         self.render_thread.start()
-        self.workers = []
 
     def setup_gui(self):
         self.font_spacing = None
         btn_height = None
-        # TODO: this should be a pyglet.graphics.Batch, but then the borders dont render
         self.gui = []
         self.button_regions = {}
         self.rectangles = {}
         self.pressed_button = None
-        y = self.height
+        y = 0
         for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE WORLD", "CHANGE DIMENSION"):
             label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center")
             if self.font_spacing is None:
@@ -94,11 +102,11 @@ class MapViewerWindow(pyglet.window.Window):
         return self.gui
 
     def set_progress(self, progress):
-        print(progress)
+        # print(progress)
         self.progress = progress
 
     def render_world(self):
-        if self.render_thread is not None:
+        if len(self.workers) > 0:
             return
         self.set_progress(("Checking regions...", (0, 100)))
         dimension = self.dimension
@@ -120,6 +128,7 @@ class MapViewerWindow(pyglet.window.Window):
             tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
             if not os.path.isfile(tile_file) or os.path.getmtime(tile_file) < os.path.getmtime(region.filename):
                 renderable_regions.append((tile_file, x, z))
+        self.set_progress(("Checking regions...", (1, 1)))
 
         def _render_region(filename, region_x, region_z):
             if self.cancel_render:
@@ -135,7 +144,6 @@ class MapViewerWindow(pyglet.window.Window):
             futures = [executor.submit(_render_region, *info) for info in renderable_regions]
             for idx, future in enumerate(concurrent.futures.as_completed(futures)):
                 self.set_progress((f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions))))
-                print(self.progress)
 
         self.workers = []
         self.render_thread = None
@@ -185,10 +193,12 @@ class MapViewerWindow(pyglet.window.Window):
         self.indicator.draw()
 
         glLoadIdentity()
+        glTranslatef(0, self.height, 0)
         for item in self.gui:
             item.draw()
 
         if self.progress:
+            glLoadIdentity()
             pyglet.shapes.Rectangle(0, 0, self.width, 3*self.font_height+self.font_spacing, color=(192,192,192)).draw()
             pyglet.shapes.Line(0, 3*self.font_height+self.font_spacing, self.width, 3*self.font_height+self.font_spacing, 5, color=(0,0,0)).draw()
             pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
@@ -300,6 +310,9 @@ def main():
         data_dir = fs.get_data_dir(args.world.folder)
         filename = os.path.join(data_dir, f"{dimension}.{x}.{z}.png")
         render_region(args.world.get_region(dimension, x, z)).save(filename)
+        if len(missing_blocks):
+            print("Missing blocks:")
+            print("  " + "\n  ".join(sorted(missing_blocks.keys())))
     else:
         window = MapViewerWindow(args.world,
             resizable=True, width=1024, height=768, caption="Map Viewer - %s" % args.world.name)
