@@ -57,7 +57,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.x = player.x-self.width/(2*self.scale)
         self.y = -player.z-self.height/(2*self.scale)
         self.gui = self.setup_gui()
-        self.progress = None
+        self.set_progress(None)
         self.cancel_render = False
         pyglet.clock.schedule_interval(self.on_draw, 0.5)
         self.render_thread = threading.Thread(target=self.render_world)
@@ -93,10 +93,14 @@ class MapViewerWindow(pyglet.window.Window):
             self.gui.append(label)
         return self.gui
 
+    def set_progress(self, progress):
+        print(progress)
+        self.progress = progress
+
     def render_world(self):
         if self.render_thread is not None:
             return
-        self.progress = ("Checking regions...", (0, 100))
+        self.set_progress(("Checking regions...", (0, 100)))
         dimension = self.dimension
         region_files = self.level.get_regions(dimension)
         regions = []
@@ -106,7 +110,7 @@ class MapViewerWindow(pyglet.window.Window):
         data_dir = fs.get_data_dir(self.level.folder)
         renderable_regions = []
         for idx, region in enumerate(regions):
-            self.progress = ("Checking regions...", (idx, len(regions)))
+            self.set_progress(("Checking regions...", (idx, len(regions))))
             x, z = region
             try:
                 region = self.level.get_region(dimension, x, z)
@@ -129,12 +133,13 @@ class MapViewerWindow(pyglet.window.Window):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(_render_region, *info) for info in renderable_regions]
-            for future in enumerate(concurrent.futures.as_completed(futures)):
-                self.progress = (f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions)))
+            for idx, future in enumerate(concurrent.futures.as_completed(futures)):
+                self.set_progress((f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions))))
+                print(self.progress)
 
         self.workers = []
         self.render_thread = None
-        self.progress = None
+        self.set_progress(None)
 
     def on_key_release(self, key, modifiers):
         if key == KEY.I:
