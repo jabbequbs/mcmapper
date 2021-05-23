@@ -167,8 +167,6 @@ def render_world(world):
     print("Initializing map...")
     result = Image.new("RGB", (width, height))
     data_dir = get_data_dir(world.folder)
-    if not os.path.isdir(data_dir):
-        os.makedirs(data_dir)
 
     renderable_regions = []
     for idx, region in enumerate(regions):

@@ -6,8 +6,11 @@ import os
 def get_data_dir(world):
     if type(world) is not str:
         world = world.worldfolder
-    return os.path.abspath(os.path.join(os.path.dirname(__file__),
+    result = os.path.abspath(os.path.join(os.path.dirname(__file__),
         "..", "..", "data", os.path.basename(world)))
+    if not os.path.isdir(result):
+        os.makedirs(result)
+    return result
 
 def get_asset_dir():
     return os.path.abspath(os.path.join(os.path.dirname(__file__),

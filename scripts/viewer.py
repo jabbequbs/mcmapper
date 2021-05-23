@@ -12,7 +12,7 @@ import mcmapper.filesystem as fs
 
 from glob import glob
 from mcmapper.level import LevelInfo
-from mcmapper.mapper import render_world, missing_blocks
+from mcmapper.mapper import render_world, missing_blocks, render_region
 from pyglet.gl import *
 from pyglet.window import key as KEY
 
@@ -43,6 +43,7 @@ class MapViewerWindow(pyglet.window.Window):
         pyglet.window.Window.__init__(self, *args, **kwargs)
         self.level = world
         player = self.level.get_players()[0]
+        self.dimension = player.dimension
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.player_location = (player.x, player.z)
         self.indicator = pyglet.sprite.Sprite(img=pyglet.image.load(
@@ -56,50 +57,79 @@ class MapViewerWindow(pyglet.window.Window):
         self.y = -player.z-self.height/(2*self.scale)
         self.gui = self.setup_gui()
         self.progress = None
-        threading.Thread(target=self.render_world).start()
+        self.cancel_render = False
+        pyglet.clock.schedule_interval(self.on_draw, 0.5)
+        self.render_thread = threading.Thread(target=self.render_world)
+        self.render_thread.start()
 
     def setup_gui(self):
-        spacing = None
+        self.font_spacing = None
         btn_height = None
-        self.gui = pyglet.graphics.Batch()
-        parent = pyglet.graphics.Group()
-        background = pyglet.graphics.OrderedGroup(0, parent)
-        foreground = pyglet.graphics.OrderedGroup(1, parent)
+        # TODO: this should be a pyglet.graphics.Batch
+        self.gui = []
         self.button_regions = {}
         self.rectangles = {}
         self.pressed_button = None
         y = self.height
         for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE WORLD", "CHANGE DIMENSION"):
-            label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center",
-                group=foreground, batch=self.gui)
-            if spacing is None:
-                spacing = label.content_height/2
+            label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center")
+            if self.font_spacing is None:
+                self.font_height = label.content_height
+                self.font_spacing = label.content_height/2
                 btn_height = label.content_height*2
-            y -= spacing+btn_height
-            label.x = spacing*2
+            y -= self.font_spacing+btn_height
+            label.x = self.font_spacing*2
             label.y = y + btn_height/2
-            xMin, yMin, xMax, yMax = (spacing, y, label.content_width+spacing*3, y+btn_height)
+            xMin, yMin, xMax, yMax = (self.font_spacing, y, label.content_width+self.font_spacing*3, y+btn_height)
             self.button_regions[(xMin, yMin, xMax, yMax)] = text
-            pyglet.shapes.Line(xMin, yMin, xMax, yMin, 5, color=(0,0,0), batch=self.gui, group=foreground)
-            pyglet.shapes.Line(xMin, yMin, xMin, yMax, 5, color=(0,0,0), batch=self.gui, group=foreground)
-            pyglet.shapes.Line(xMin, yMax, xMax, yMax, 5, color=(0,0,0), batch=self.gui, group=foreground)
-            pyglet.shapes.Line(xMax, yMin, xMax, yMax, 5, color=(0,0,0), batch=self.gui, group=foreground)
-            self.rectangles[text] = pyglet.shapes.Rectangle(xMin, yMin, xMax-xMin, yMax-yMin,
-                color=(192,192,192), batch=self.gui, group=background)
+            self.gui.append(pyglet.shapes.Rectangle(xMin, yMin, xMax-xMin, yMax-yMin, color=(192,192,192)))
+            self.rectangles[text] = self.gui[-1]
+            self.gui.append(pyglet.shapes.Line(xMin, yMin, xMax, yMin, 5, color=(0,0,0)))
+            self.gui.append(pyglet.shapes.Line(xMin, yMin, xMin, yMax, 5, color=(0,0,0)))
+            self.gui.append(pyglet.shapes.Line(xMin, yMax, xMax, yMax, 5, color=(0,0,0)))
+            self.gui.append(pyglet.shapes.Line(xMax, yMin, xMax, yMax, 5, color=(0,0,0)))
+            self.gui.append(label)
         return self.gui
 
     def render_world(self):
         if getattr(self, "worker", None) is not None:
             return
-        self.set_caption(self.caption + " - Rendering...")
-        # Rendering in a subprocess keeps the main map window more responsive
-        self.worker = subprocess.Popen([sys.executable, __file__, "--render", self.level.folder])
-        self.worker.wait()
-        player = self.level.get_players()[0]
-        with self.sprite_lock:
-            self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
-        self.set_caption(self.caption.replace(" - Rendering...", ""))
+        self.progress = ("Checking regions...", (0, 100))
+        region_files = self.level.get_regions(self.dimension)
+        regions = []
+        for filename in region_files:
+            parts = os.path.basename(filename).split(".")
+            regions.append((int(parts[1]), int(parts[2])))
+        data_dir = fs.get_data_dir(self.level.folder)
+        renderable_regions = []
+        for idx, region in enumerate(regions):
+            self.progress = ("Checking regions...", (idx, len(regions)))
+            x, z = region
+            try:
+                region = self.level.get_region(self.dimension, x, z)
+            except Exception as e:
+                print("\n%s" % e)
+                continue
+            tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (self.dimension, x, z))
+            if not os.path.isfile(tile_file) or os.path.getmtime(tile_file) < os.path.getmtime(region.filename):
+                renderable_regions.append((tile_file, x, z))
+
+        for idx, region_info in enumerate(renderable_regions):
+            self.progress = (f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions)))
+            print(f"\r{self.progress}", end="")
+            filename, x, z = region_info
+            self.worker = subprocess.Popen([sys.executable, __file__, self.level.folder,
+                "--region", f"{self.dimension},{x},{z}"])
+            if self.worker.wait() == 0:
+                with self.sprite_lock:
+                    self.sprites.sprites[region_info] = filename
+            if self.cancel_render:
+                break
+        else:
+            print()
         self.worker = None
+        self.render_thread = None
+        self.progress = None
 
     def on_key_release(self, key, modifiers):
         if key == KEY.I:
@@ -127,7 +157,7 @@ class MapViewerWindow(pyglet.window.Window):
         else:
             print("Unhandled key: %s,%s" % (key, modifiers))
 
-    def on_draw(self):
+    def on_draw(self, dt=None):
         self.clear()
         glLoadIdentity()
         glScalef(self.scale, self.scale, 1)
@@ -145,7 +175,19 @@ class MapViewerWindow(pyglet.window.Window):
         self.indicator.draw()
 
         glLoadIdentity()
-        self.gui.draw()
+        for item in self.gui:
+            item.draw()
+
+        if self.progress:
+            pyglet.shapes.Rectangle(0, 0, self.width, 3*self.font_height+self.font_spacing, color=(192,192,192)).draw()
+            pyglet.shapes.Line(0, 3*self.font_height+self.font_spacing, self.width, 3*self.font_height+self.font_spacing, 5, color=(0,0,0)).draw()
+            pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
+                self.width-2*self.font_spacing, self.font_height, color=(255,255,255)).draw()
+            progress_width = self.progress[1][0] / self.progress[1][1] * (self.width-3*self.font_spacing)
+            pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
+                progress_width, self.font_height, color=(64, 255, 64)).draw()
+            pyglet.text.Label(self.progress[0].upper(), bold=True, x=self.font_spacing, y=self.font_height*2+self.font_spacing,
+                anchor_y="center", color=(0,0,0,255)).draw()
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         if self.pressed_button:
@@ -165,7 +207,9 @@ class MapViewerWindow(pyglet.window.Window):
             xMin, yMin, xMax, yMax = region
             if command == self.pressed_button and xMin < x < xMax and yMin < y < yMax:
                 if command == "REFRESH MAP":
-                    threading.Thread(target=self.render_world).start()
+                    if not self.render_thread:
+                        self.render_thread = threading.Thread(target=self.render_world)
+                        self.render_thread.start()
                 elif command == "LOCATE PLAYER":
                     player = self.level.get_players()[0]
                     self.player_location = (player.x, player.z)
@@ -224,6 +268,8 @@ def main():
     parser.add_argument("world", nargs="?")
     parser.add_argument("--render", action="store_true",
         help="Regenerate the tiles and world map for the specified world")
+    parser.add_argument("--region",
+        help="Render a certain region for the specified world")
     args = parser.parse_args()
 
     if args.world:
@@ -238,11 +284,24 @@ def main():
         if len(missing_blocks):
             print("Missing blocks:")
             print("  " + "\n  ".join(sorted(missing_blocks.keys())))
-        return
-
-    window = MapViewerWindow(args.world,
-        resizable=True, width=1024, height=768, caption="Map Viewer - %s" % args.world.name)
-    pyglet.app.run()
+    elif args.region:
+        dimension, x, z = args.region.split(",")
+        x, z = int(x), int(z)
+        data_dir = fs.get_data_dir(args.world.folder)
+        filename = os.path.join(data_dir, f"{dimension}.{x}.{z}.png")
+        render_region(args.world.get_region(dimension, x, z)).save(filename)
+    else:
+        window = MapViewerWindow(args.world,
+            resizable=True, width=1024, height=768, caption="Map Viewer - %s" % args.world.name)
+        pyglet.app.run()
+        print("Cancelling pending renders...")
+        window.cancel_render = True
+        print("Terminating render process...")
+        if window.worker:
+            window.worker.terminate()
+        print("Waiting for render thread...")
+        if window.render_thread:
+            window.render_thread.join()
 
 
 if __name__ == '__main__':
