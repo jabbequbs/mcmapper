@@ -22,6 +22,7 @@ class PlayerInfo(object):
         playerInfo = nbt.nbt.NBTFile(filename)
         self.dimension = dimensions[playerInfo["Dimension"].value]
         self.x, self.y, self.z = (t.value for t in playerInfo["Pos"])
+        self.yaw, self.pitch = (t.value for t in playerInfo["Rotation"])
 
 
 class LevelInfo(object):

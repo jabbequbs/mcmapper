@@ -37,6 +37,33 @@ class SpriteManager(object):
         return result
 
 
+class Indicator(object):
+    def __init__(self, window):
+        self.x, self.y, self.r = 0, 0, 0
+        self.window = window
+        center_y = -10/3
+        self.parts = [
+            pyglet.shapes.Triangle(0, 10-center_y, -5, -10-center_y, 5, -10-center_y, color=(0,0,0)),
+            pyglet.shapes.Triangle(0, 10-center_y, -5, -10-center_y, 5, -10-center_y, color=(255,0,0)),
+        ]
+
+    def update(self, player):
+        self.x = player.x
+        self.y = -player.z
+        self.r = player.yaw
+
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(self.x, self.y, 0)
+        glRotatef(-self.r+180, 0, 0, 1)
+        glScalef(1/self.window.scale, 1/self.window.scale, 1)
+        glScalef(2, 2, 1)
+        self.parts[0].draw()
+        glScalef(0.75, 0.75, 1)
+        self.parts[1].draw()
+        glPopMatrix()
+
+
 class MapViewerWindow(pyglet.window.Window):
     def __init__(self, world, *args, **kwargs):
         pyglet.window.Window.__init__(self, *args, **kwargs)
@@ -45,10 +72,8 @@ class MapViewerWindow(pyglet.window.Window):
         self.dimension = player.dimension
         self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
         self.player_location = (player.x, player.z)
-        self.indicator = pyglet.sprite.Sprite(img=pyglet.image.load(
-            os.path.join(os.path.dirname(__file__), "mcmapper", "indicator.png")))
-        self.indicator.x = self.player_location[0]
-        self.indicator.y = -self.player_location[1]
+        self.indicator = Indicator(self)
+        self.indicator.update(player)
         self.sprite_lock = threading.Lock()
         self.scale = 2.0
         # Center the window on the player location
@@ -126,24 +151,25 @@ class MapViewerWindow(pyglet.window.Window):
                 return
             command = [sys.executable, __file__, self.level.folder,
                 "--region", f"{dimension},{region_x},{region_z}"]
-            print(f"Rendering: {command}")
-            worker = subprocess.Popen(command)
+            kwargs = {}
+            if os.name == "nt":
+                kwargs["creationflags"] = 0x08000000 # CREATE_NO_WINDOW
+            print(f"Rendering region {command[-1]} {kwargs}")
+            worker = subprocess.Popen(command, **kwargs)
             self.workers.append(worker)
             if worker.wait() == 0:
                 with self.sprite_lock:
                     self.sprites.sprites[(region_x, region_z)] = filename
 
-        player = self.level.get_players()[0]
-        self.player_location = (player.x, player.z)
-        self.indicator.x = self.player_location[0]
-        self.indicator.y = -self.player_location[1]
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(_render_region, *info) for info in renderable_regions]
-            for idx, future in enumerate(concurrent.futures.as_completed(futures)):
-                self.set_progress((f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions))))
-                e = future.exception()
-                if e:
-                    print(e)
+        if len(renderable_regions) > 0:
+            self.set_progress((f"Rendering {len(renderable_regions)} regions...", (0, len(renderable_regions))))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [executor.submit(_render_region, *info) for info in renderable_regions]
+                for idx, future in enumerate(concurrent.futures.as_completed(futures), 1):
+                    self.set_progress((f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions))))
+                    e = future.exception()
+                    if e:
+                        print(e)
 
         def _clear_progress(*args, **kwargs):
             self.set_progress(None)
@@ -176,6 +202,12 @@ class MapViewerWindow(pyglet.window.Window):
                 self.y -= dy
         else:
             print("Unhandled key: %s,%s" % (key, modifiers))
+
+    def on_activate(self):
+        print("Activated")
+        player = self.level.get_players()[0]
+        self.player_location = (player.x, player.z)
+        self.indicator.update(player)
 
     def on_draw(self, dt=None):
         self.clear()
@@ -236,10 +268,9 @@ class MapViewerWindow(pyglet.window.Window):
                 elif command == "LOCATE PLAYER":
                     player = self.level.get_players()[0]
                     self.player_location = (player.x, player.z)
+                    self.indicator.update(player)
                     self.x = player.x-self.width/self.scale/2
                     self.y = -player.z-self.height/self.scale/2
-                    self.indicator.x = self.player_location[0]
-                    self.indicator.z = -self.player_location[1]
 
         if self.pressed_button:
             self.rectangles[self.pressed_button].color = (192, 192, 192)
