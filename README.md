@@ -6,6 +6,8 @@ can be selected with command line arguments.  The window can be panned and zoome
 with the mouse, or with the arrow keys and page up/down.  On-screen buttons can
 be used to re-render the map or to center the map on the player location.
 
+![Screenshot](https://raw.githubusercontent.com/jabbequbs/mcmapper/master/screenshot.png)
+
 ### Notes
 
 Something like the following code can be used to extract the colors of new blocks:
@@ -20,6 +22,6 @@ with jar.open("assets/minecraft/textures/block/cobblestone.png") as f:
 ### TODO
 * Allow selection of alternate worlds from within the app
 * Allow selection of alternate dimensions from within the app
-  * Render the Nether somehow (probably just a horizontal slice at the lave level)
+  * Render the Nether somehow (probably just a horizontal slice at the lava level)
 * Move GUI rendering into batches
 * Speed up actual rendering process
