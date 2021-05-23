@@ -66,9 +66,10 @@ class MapViewerWindow(pyglet.window.Window):
         self.x = player.x-self.width/(2*self.scale)
         self.y = -player.z-self.height/(2*self.scale)
         self.gui = self.setup_gui()
+        self.progress_lock = threading.Lock()
         self.set_progress(None)
         self.cancel_render = False
-        pyglet.clock.schedule_interval(self.on_draw, 0.5)
+        pyglet.clock.schedule_interval(self.on_draw, 0.25)
         self.workers = []
         self.render_thread = threading.Thread(target=self.render_world)
         self.render_thread.start()
@@ -81,7 +82,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.rectangles = {}
         self.pressed_button = None
         y = 0
-        for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE WORLD", "CHANGE DIMENSION"):
+        for text in ("REFRESH MAP", "LOCATE PLAYER"):
             label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center")
             if self.font_spacing is None:
                 self.font_height = label.content_height
@@ -103,7 +104,8 @@ class MapViewerWindow(pyglet.window.Window):
 
     def set_progress(self, progress):
         # print(progress)
-        self.progress = progress
+        with self.progress_lock:
+            self.progress = progress
 
     def render_world(self):
         if len(self.workers) > 0:
@@ -197,17 +199,18 @@ class MapViewerWindow(pyglet.window.Window):
         for item in self.gui:
             item.draw()
 
-        if self.progress:
-            glLoadIdentity()
-            pyglet.shapes.Rectangle(0, 0, self.width, 3*self.font_height+self.font_spacing, color=(192,192,192)).draw()
-            pyglet.shapes.Line(0, 3*self.font_height+self.font_spacing, self.width, 3*self.font_height+self.font_spacing, 5, color=(0,0,0)).draw()
-            pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
-                self.width-2*self.font_spacing, self.font_height, color=(255,255,255)).draw()
-            progress_width = self.progress[1][0] / self.progress[1][1] * (self.width-3*self.font_spacing)
-            pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
-                progress_width, self.font_height, color=(64, 255, 64)).draw()
-            pyglet.text.Label(self.progress[0].upper(), bold=True, x=self.font_spacing, y=self.font_height*2+self.font_spacing,
-                anchor_y="center", color=(0,0,0,255)).draw()
+        with self.progress_lock:
+            if self.progress:
+                glLoadIdentity()
+                pyglet.shapes.Rectangle(0, 0, self.width, 3*self.font_height+self.font_spacing, color=(192,192,192)).draw()
+                pyglet.shapes.Line(0, 3*self.font_height+self.font_spacing, self.width, 3*self.font_height+self.font_spacing, 5, color=(0,0,0)).draw()
+                pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
+                    self.width-2*self.font_spacing, self.font_height, color=(255,255,255)).draw()
+                progress_width = self.progress[1][0] / self.progress[1][1] * (self.width-3*self.font_spacing)
+                pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
+                    progress_width, self.font_height, color=(64, 255, 64)).draw()
+                pyglet.text.Label(self.progress[0].upper(), bold=True, x=self.font_spacing, y=self.font_height*2+self.font_spacing,
+                    anchor_y="center", color=(0,0,0,255)).draw()
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         if self.pressed_button:
@@ -218,14 +221,14 @@ class MapViewerWindow(pyglet.window.Window):
     def on_mouse_press(self, x, y, button, modifiers):
         for region, command in self.button_regions.items():
             xMin, yMin, xMax, yMax = region
-            if xMin < x < xMax and yMin < y < yMax:
+            if xMin < x < xMax and yMin < y-self.height < yMax:
                 self.pressed_button = command
                 self.rectangles[command].color = (255,255,255)
 
     def on_mouse_release(self, x, y, button, modifiers):
         for region, command in self.button_regions.items():
             xMin, yMin, xMax, yMax = region
-            if command == self.pressed_button and xMin < x < xMax and yMin < y < yMax:
+            if command == self.pressed_button and xMin < x < xMax and yMin < y-self.height < yMax:
                 if command == "REFRESH MAP":
                     if not self.render_thread:
                         self.render_thread = threading.Thread(target=self.render_world)
