@@ -7,6 +7,7 @@ import sys
 import threading
 import cProfile
 import subprocess
+import concurrent.futures
 
 import mcmapper.filesystem as fs
 
@@ -61,11 +62,12 @@ class MapViewerWindow(pyglet.window.Window):
         pyglet.clock.schedule_interval(self.on_draw, 0.5)
         self.render_thread = threading.Thread(target=self.render_world)
         self.render_thread.start()
+        self.workers = []
 
     def setup_gui(self):
         self.font_spacing = None
         btn_height = None
-        # TODO: this should be a pyglet.graphics.Batch
+        # TODO: this should be a pyglet.graphics.Batch, but then the borders dont render
         self.gui = []
         self.button_regions = {}
         self.rectangles = {}
@@ -92,10 +94,11 @@ class MapViewerWindow(pyglet.window.Window):
         return self.gui
 
     def render_world(self):
-        if getattr(self, "worker", None) is not None:
+        if self.render_thread is not None:
             return
         self.progress = ("Checking regions...", (0, 100))
-        region_files = self.level.get_regions(self.dimension)
+        dimension = self.dimension
+        region_files = self.level.get_regions(dimension)
         regions = []
         for filename in region_files:
             parts = os.path.basename(filename).split(".")
@@ -106,28 +109,30 @@ class MapViewerWindow(pyglet.window.Window):
             self.progress = ("Checking regions...", (idx, len(regions)))
             x, z = region
             try:
-                region = self.level.get_region(self.dimension, x, z)
+                region = self.level.get_region(dimension, x, z)
             except Exception as e:
                 print("\n%s" % e)
                 continue
-            tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (self.dimension, x, z))
+            tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
             if not os.path.isfile(tile_file) or os.path.getmtime(tile_file) < os.path.getmtime(region.filename):
                 renderable_regions.append((tile_file, x, z))
 
-        for idx, region_info in enumerate(renderable_regions):
-            self.progress = (f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions)))
-            print(f"\r{self.progress}", end="")
-            filename, x, z = region_info
-            self.worker = subprocess.Popen([sys.executable, __file__, self.level.folder,
-                "--region", f"{self.dimension},{x},{z}"])
-            if self.worker.wait() == 0:
+        def _render_region(filename, region_x, region_z):
+            if self.cancel_render:
+                return
+            worker = subprocess.Popen([sys.executable, __file__, self.level.folder,
+                "--region", f"{dimension},{region_x},{region_z}"])
+            self.workers.append(worker)
+            if worker.wait() == 0:
                 with self.sprite_lock:
                     self.sprites.sprites[region_info] = filename
-            if self.cancel_render:
-                break
-        else:
-            print()
-        self.worker = None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(_render_region, *info) for info in renderable_regions]
+            for future in enumerate(concurrent.futures.as_completed(futures)):
+                self.progress = (f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions)))
+
+        self.workers = []
         self.render_thread = None
         self.progress = None
 
@@ -296,9 +301,9 @@ def main():
         pyglet.app.run()
         print("Cancelling pending renders...")
         window.cancel_render = True
-        print("Terminating render process...")
-        if window.worker:
-            window.worker.terminate()
+        print("Terminating render processes...")
+        for worker in window.workers:
+            worker.terminate()
         print("Waiting for render thread...")
         if window.render_thread:
             window.render_thread.join()
