@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 
-"""
-TODO:
-- move buttons/progress bar into pyglet.graphics.Batch instances
-- implement changing worlds at runtime instead of just at launch
-- implement changing dimensions (need to handle dimensions without player coords)
-- speed up the actual tile rendering process (implement in D?  sounds like fun)
-"""
-
-
 import argparse
 import os
 import pyglet
@@ -29,8 +20,6 @@ from pyglet.window import key as KEY
 
 class SpriteManager(object):
     def __init__(self, folder, dimension):
-        asset_dir = fs.get_asset_dir()
-        self.folder = folder
         self.sprites = {}
         for sprite_file in glob(os.path.join(folder, "%s.*.png" % dimension)):
             key = tuple(map(int, os.path.basename(sprite_file).split(".")[1:3]))
@@ -103,7 +92,7 @@ class MapViewerWindow(pyglet.window.Window):
         return self.gui
 
     def set_progress(self, progress):
-        # print(progress)
+        print(progress)
         with self.progress_lock:
             self.progress = progress
 
@@ -135,21 +124,32 @@ class MapViewerWindow(pyglet.window.Window):
         def _render_region(filename, region_x, region_z):
             if self.cancel_render:
                 return
-            worker = subprocess.Popen([sys.executable, __file__, self.level.folder,
-                "--region", f"{dimension},{region_x},{region_z}"])
+            command = [sys.executable, __file__, self.level.folder,
+                "--region", f"{dimension},{region_x},{region_z}"]
+            print(f"Rendering: {command}")
+            worker = subprocess.Popen(command)
             self.workers.append(worker)
             if worker.wait() == 0:
                 with self.sprite_lock:
-                    self.sprites.sprites[region_info] = filename
+                    self.sprites.sprites[(region_x, region_z)] = filename
 
+        player = self.level.get_players()[0]
+        self.player_location = (player.x, player.z)
+        self.indicator.x = self.player_location[0]
+        self.indicator.y = -self.player_location[1]
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(_render_region, *info) for info in renderable_regions]
             for idx, future in enumerate(concurrent.futures.as_completed(futures)):
                 self.set_progress((f"Rendering {len(renderable_regions)} regions...", (idx, len(renderable_regions))))
+                e = future.exception()
+                if e:
+                    print(e)
 
+        def _clear_progress(*args, **kwargs):
+            self.set_progress(None)
+        pyglet.clock.schedule_once(_clear_progress, 1, None)
         self.workers = []
         self.render_thread = None
-        self.set_progress(None)
 
     def on_key_release(self, key, modifiers):
         if key == KEY.I:
@@ -206,7 +206,7 @@ class MapViewerWindow(pyglet.window.Window):
                 pyglet.shapes.Line(0, 3*self.font_height+self.font_spacing, self.width, 3*self.font_height+self.font_spacing, 5, color=(0,0,0)).draw()
                 pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
                     self.width-2*self.font_spacing, self.font_height, color=(255,255,255)).draw()
-                progress_width = self.progress[1][0] / self.progress[1][1] * (self.width-3*self.font_spacing)
+                progress_width = self.progress[1][0] / self.progress[1][1] * (self.width-2*self.font_spacing)
                 pyglet.shapes.Rectangle(self.font_spacing, self.font_spacing,
                     progress_width, self.font_height, color=(64, 255, 64)).draw()
                 pyglet.text.Label(self.progress[0].upper(), bold=True, x=self.font_spacing, y=self.font_height*2+self.font_spacing,
@@ -245,9 +245,9 @@ class MapViewerWindow(pyglet.window.Window):
             self.rectangles[self.pressed_button].color = (192, 192, 192)
             self.pressed_button = None
 
-        """Select a chunk for debugging"""
-        print("mouse click:", (x, y))
+        # Select a chunk for debugging
         if modifiers & 2: # CTRL is pressed
+            print("mouse click:", (x, y))
             world_x = self.x + (self.width*(x/self.width)/self.scale)
             world_z = -(self.y + (self.height*(y/self.height)/self.scale))
             region_x = int(world_x // 512)

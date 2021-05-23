@@ -1,12 +1,14 @@
-This is a simple application for viewing Minecraft maps.  The default view is that
-of the most recently played world, centered on the player location.  The window
-can be panned and zoomed with the mouse.  Press `r` to re-render the map in the
-background.  If the window is reactivated, it will re-center on the player location.
+# MC Mapper
 
-TODO:
-    - re-draw the map when tile rendering has finished
-    - launch to a list of minecraft worlds the user can select from
-        - can use a minecraft block texture as the background
+This is a simple application for viewing Minecraft maps.  The default view is that
+of the most recently played world, centered on the player location.  Alternate worlds
+can be selected with command line arguments.  The window can be panned and zoomed
+with the mouse, or with the arrow keys and page up/down.  On-screen buttons can
+be used to re-render the map or to center the map on the player location.
+
+### Notes
+
+Something like the following code can be used to extract the colors of new blocks:
 ```
 from PIL import Image
 import zipfile
@@ -14,6 +16,10 @@ jar = zipfile.ZipFile("/path/to/1.16.2.jar")
 with jar.open("assets/minecraft/textures/block/cobblestone.png") as f:
     sprite = Image.open(f)
 ```
-    - render a player location indicator on the map
-    - add a loading bar for the rendering process
-    - speed it up
+
+### TODO
+* Allow selection of alternate worlds from within the app
+* Allow selection of alternate dimensions from within the app
+  * Render the Nether somehow (probably just a horizontal slice at the lave level)
+* Move GUI rendering into batches
+* Speed up actual rendering process
