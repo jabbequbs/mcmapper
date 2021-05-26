@@ -177,6 +177,11 @@ class MapViewerWindow(pyglet.window.Window):
         self.workers = []
         self.render_thread = None
 
+    def on_key_press(self, key, modifiers):
+        if key == KEY.ESCAPE:
+            self.minimize()
+            return pyglet.event.EVENT_HANDLED
+
     def on_key_release(self, key, modifiers):
         if key == KEY.I:
             print("window top left:", (self.x, self.y))
