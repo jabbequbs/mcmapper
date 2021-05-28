@@ -68,25 +68,41 @@ class MapViewerWindow(pyglet.window.Window):
     def __init__(self, world, *args, **kwargs):
         pyglet.window.Window.__init__(self, *args, **kwargs)
         self.level = world
-        player = self.level.get_players()[0]
-        self.dimension = player.dimension
-        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), player.dimension)
-        self.player_location = (player.x, player.z)
+        self._player = None
         self.indicator = Indicator(self)
-        self.indicator.update(player)
-        self.sprite_lock = threading.Lock()
+        self.dimension = None
         self.scale = 2.0
-        # Center the window on the player location
-        self.x = player.x-self.width/(2*self.scale)
-        self.y = -player.z-self.height/(2*self.scale)
+        # Some additional attributes will be set by player.setter
+        self.player = self.level.get_players()[0]
+        self.sprite_lock = threading.Lock()
+        self.locate_player()
         self.gui = self.setup_gui()
         self.progress_lock = threading.Lock()
         self.set_progress(None)
         self.cancel_render = False
         pyglet.clock.schedule_interval(self.on_draw, 0.25)
         self.workers = []
-        self.render_thread = threading.Thread(target=self.render_world)
-        self.render_thread.start()
+        self.render_thread = None
+        # self.render_thread = threading.Thread(target=self.render_world)
+        # self.render_thread.start()
+
+    @property
+    def player(self):
+        return self._player
+
+    @player.setter
+    def player(self, value):
+        self._player = value
+        if value.dimension != self.dimension:
+            self.dimension = value.dimension
+            self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), value.dimension)
+            self.locate_player()
+        self.player_location = (value.x, value.z)
+        self.indicator.update(value)
+
+    def locate_player(self):
+        self.x = self._player.x-self.width/(2*self.scale)
+        self.y = -self._player.z-self.height/(2*self.scale)
 
     def setup_gui(self):
         self.font_spacing = None
@@ -210,9 +226,7 @@ class MapViewerWindow(pyglet.window.Window):
 
     def on_activate(self):
         print("Activated")
-        player = self.level.get_players()[0]
-        self.player_location = (player.x, player.z)
-        self.indicator.update(player)
+        self.player = self.level.get_players()[0]
 
     def on_draw(self, dt=None):
         self.clear()
@@ -271,11 +285,8 @@ class MapViewerWindow(pyglet.window.Window):
                         self.render_thread = threading.Thread(target=self.render_world)
                         self.render_thread.start()
                 elif command == "LOCATE PLAYER":
-                    player = self.level.get_players()[0]
-                    self.player_location = (player.x, player.z)
-                    self.indicator.update(player)
-                    self.x = player.x-self.width/self.scale/2
-                    self.y = -player.z-self.height/self.scale/2
+                    self.player = self.level.get_players()[0]
+                    self.locate_player()
 
         if self.pressed_button:
             self.rectangles[self.pressed_button].color = (192, 192, 192)
