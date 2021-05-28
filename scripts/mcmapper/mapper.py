@@ -43,22 +43,26 @@ def render_chunk(chunk, layer, heightmap=False):
     try:
         height_data = chunk["Level"]["Heightmaps"][layer]
     except:
-        # If the heightmap isn't included, just return a black square
-        return Image.frombytes("RGB", (16, 16),
-            b"".join(bytes((0, 0, 0)) for _ in range(256)))
-    # In 1.16 and up, heightmaps are 37 longs, each with 7 values of 9 bits.  The last bit of each long
-    # is unused (7*9 = 63), and the last 28 bits of the last long.
-    # The heightmap for an ocean chunk looks like this:
-    #   01: 0000111111000111111000111111000111111000111111000111111000111111
-    #   02: 0000111111000111111000111111000111111000111111000111111000111111
-    #   03: 0000111111000111111000111111000111111000111111000111111000111111
-    #   ...
-    #   37: 0000000000000000000000000000000111111000111111000111111000111111
-    heights = []
-    for h in height_data:
-        # Can't use `bin` by itself since it only handles unsigned values
-        bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in h.to_bytes(8, "big", signed=True))
-        heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
+        if isinstance(layer, str):
+            # If the heightmap isn't included, just return a black square
+            return Image.frombytes("RGB", (16, 16),
+                b"".join(bytes((0, 0, 0)) for _ in range(256)))
+        elif isinstance(layer, int):
+            heights = [layer for _ in range(256)]
+    else:
+        # In 1.16 and up, heightmaps are 37 longs, each with 7 values of 9 bits.  The last bit of each long
+        # is unused (7*9 = 63), and the last 28 bits of the last long.
+        # The heightmap for an ocean chunk looks like this:
+        #   01: 0000111111000111111000111111000111111000111111000111111000111111
+        #   02: 0000111111000111111000111111000111111000111111000111111000111111
+        #   03: 0000111111000111111000111111000111111000111111000111111000111111
+        #   ...
+        #   37: 0000000000000000000000000000000111111000111111000111111000111111
+        heights = []
+        for h in height_data:
+            # Can't use `bin` by itself since it only handles unsigned values
+            bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in h.to_bytes(8, "big", signed=True))
+            heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
 
     black = bytes((0, 0, 0))
     pixels = []
@@ -118,7 +122,7 @@ def render_chunk(chunk, layer, heightmap=False):
     return Image.frombytes("RGB", (16, 16), b"".join(pixels))
 
 
-def render_region(region):
+def render_region(region, layer="WORLD_SURFACE"):
     result = Image.new("RGB", (32*16, 32*16))
     for x in range(32):
         for z in range(32):
@@ -127,7 +131,7 @@ def render_region(region):
             except nbt.region.InconceivedChunk:
                 pass
             else:
-                result.paste(render_chunk(chunk, "WORLD_SURFACE"), (x*16, z*16))
+                result.paste(render_chunk(chunk, layer), (x*16, z*16))
     return result
 
 

@@ -20,9 +20,12 @@ with jar.open("assets/minecraft/textures/block/cobblestone.png") as f:
 ```
 
 ### TODO
+* Check the region's chunk's `LastUpdate` (or `InhabitedTime`?), since file timestamps are not very reliable
+* Save the map data in a Sqlite database along with relevant timestamps
+* Log any unrecognized block names
 * Allow selection of alternate worlds from within the app
 * Allow selection of alternate dimensions from within the app
-  * Render the Nether somehow (probably just a horizontal slice at the lava level)
 * Allow locating different players for multiplayer maps
+* Allow the user to place pins/labels on the map
 * Move GUI rendering into batches
 * Speed up map rendering process

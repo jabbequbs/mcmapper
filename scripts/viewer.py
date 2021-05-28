@@ -348,7 +348,11 @@ def main():
         x, z = int(x), int(z)
         data_dir = fs.get_data_dir(args.world.folder)
         filename = os.path.join(data_dir, f"{dimension}.{x}.{z}.png")
-        render_region(args.world.get_region(dimension, x, z)).save(filename)
+        if dimension == "nether":
+            # Render a horizontal slice of the nether at the surface of the lava lake
+            render_region(args.world.get_region(dimension, x, z), 31).save(filename)
+        else:
+            render_region(args.world.get_region(dimension, x, z)).save(filename)
         if len(missing_blocks):
             print("Missing blocks:")
             print("  " + "\n  ".join(sorted(missing_blocks.keys())))
