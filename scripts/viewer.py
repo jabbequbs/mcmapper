@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import concurrent.futures
+import cProfile
 import os
 import pyglet
+import subprocess
 import sys
 import threading
-import cProfile
-import subprocess
-import concurrent.futures
+import time
 
 import mcmapper.filesystem as fs
 
@@ -43,8 +44,10 @@ class Indicator(object):
         self.window = window
         center_y = -10/3
         self.parts = [
-            pyglet.shapes.Triangle(0, 10-center_y, -5, -10-center_y, 5, -10-center_y, color=(0,0,0)),
             pyglet.shapes.Triangle(0, 10-center_y, -5, -10-center_y, 5, -10-center_y, color=(255,0,0)),
+            pyglet.shapes.Line(0, 10-center_y, -5, -10-center_y, 1, color=(0,0,0)),
+            pyglet.shapes.Line(0, 10-center_y, 5, -10-center_y, 1, color=(0,0,0)),
+            pyglet.shapes.Line(-5, -10-center_y, 5, -10-center_y, 1, color=(0,0,0)),
         ]
 
     def update(self, player):
@@ -58,9 +61,8 @@ class Indicator(object):
         glRotatef(-self.r+180, 0, 0, 1)
         glScalef(1/self.window.scale, 1/self.window.scale, 1)
         glScalef(2, 2, 1)
-        self.parts[0].draw()
-        glScalef(0.75, 0.75, 1)
-        self.parts[1].draw()
+        for part in self.parts:
+            part.draw()
         glPopMatrix()
 
 
@@ -238,6 +240,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.player = self.level.get_players()[0]
 
     def on_draw(self, dt=None):
+        # starttime = time.time()
         self.clear()
         glLoadIdentity()
         glScalef(self.scale, self.scale, 1)
@@ -271,6 +274,9 @@ class MapViewerWindow(pyglet.window.Window):
                     progress_width, self.font_height, color=(64, 255, 64)).draw()
                 pyglet.text.Label(self.progress[0].upper(), bold=True, x=self.font_spacing, y=self.font_height*2+self.font_spacing,
                     anchor_y="center", color=(0,0,0,255)).draw()
+
+        # duration = time.time()-starttime
+        # print(f"\r{duration:.3f}", end="")
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         if self.pressed_button:
