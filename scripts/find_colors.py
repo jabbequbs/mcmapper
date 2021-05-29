@@ -3,6 +3,7 @@
 import collections
 import json
 import os
+import zipfile
 
 from PIL import Image
 
@@ -54,19 +55,27 @@ def get_texture(jar, blockstate):
 
 def main():
     version_dir = os.path.join(os.environ["APPDATA"], ".minecraft", "versions")
-    versions = [(tuple(map(int, name.split("."))), name) for name in os.listdir(version_dir)]
+    versions = []
+    for dirname in os.listdir(version_dir):
+        try:
+            versions.append((tuple(map(int, dirname.split("."))), dirname))
+        except ValueError:
+            pass
     latest = sorted(versions)[-1][-1]
     print(latest)
-    jar = os.path.join(version_dir, latest, latest, "assets", "minecraft")
 
-    errors = {}
-    # blockstates = [line.split()[0] for line in asdf.strip().splitlines()]
-    blockstates = os.listdir(os.path.join(jar, "blockstates"))
-    for blockstate in blockstates:
-        try:
-            print('"%s": bytes(%s),' % (blockstate.split(".")[0], get_texture(jar, blockstate)))
-        except Exception as e:
-            errors[blockstate] = str(e)
+    with zipfile.ZipFile(os.path.join(version_dir, latest, f"{latest}.jar")) as jar:
+        errors = {}
+        filenames = jar.namelist()
+        blockstates = [f for f in filenames if f.startswith("assets/minecraft/blockstates/")]
+        for blockstate in blockstates:
+            basename = blockstates.split("/")[-1].split(".")[0]
+            try:
+                info = json.loads(jar.read(blockstate).decode("utf-8"))
+                texture = get_texture_name(info)
+                print(f'"{basename}": bytes(%s),' % get_texture(info))
+            except Exception as e:
+                errors[basename] = str(e)
 
     if len(errors):
         for blockstate, error in errors.items():

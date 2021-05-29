@@ -162,16 +162,23 @@ class MapViewerWindow(pyglet.window.Window):
                 renderable_regions.append((tile_file, x, z))
         self.set_progress(("Checking regions...", (1, 1)))
 
+        all_missing_blocks = set()
         def _render_region(filename, region_x, region_z):
             if self.cancel_render:
                 return
             command = [sys.executable, __file__, self.level.folder,
                 "--region", f"{dimension},{region_x},{region_z}"]
-            kwargs = {}
+            kwargs = {"stdout":subprocess.PIPE, "stderr":subprocess.STDOUT}
             if os.name == "nt":
                 kwargs["creationflags"] = 0x08000000 # CREATE_NO_WINDOW
             print(f"Rendering region {command[-1]} {kwargs}")
             worker = subprocess.Popen(command, **kwargs)
+            output = worker.communicate()[0]
+            if output:
+                output = output.decode(sys.stdout.encoding or "utf-8")
+                for line in output.splitlines():
+                    if line.startswith("Missing block: "):
+                        all_missing_blocks.add(line.replace("Missing block: ", ""))
             self.workers.append(worker)
             if worker.wait() == 0:
                 with self.sprite_lock:
@@ -186,6 +193,8 @@ class MapViewerWindow(pyglet.window.Window):
                     e = future.exception()
                     if e:
                         print(e)
+        if all_missing_blocks:
+            print("Missing blocks:\n  "+"\n  ".join(sorted(all_missing_blocks)))
 
         def _clear_progress(*args, **kwargs):
             self.set_progress(None)
@@ -365,8 +374,7 @@ def main():
         else:
             render_region(args.world.get_region(dimension, x, z)).save(filename)
         if len(missing_blocks):
-            print("Missing blocks:")
-            print("  " + "\n  ".join(sorted(missing_blocks.keys())))
+            print("\n".join(f"Missing block: {b}" for b in sorted(missing_blocks)))
     else:
         window = MapViewerWindow(args.world,
             resizable=True, width=1024, height=768, caption="Map Viewer - %s" % args.world.name)
