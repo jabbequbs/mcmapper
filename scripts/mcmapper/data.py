@@ -979,11 +979,12 @@ block_colors = {
 
 }
 
-# TODO: figure out how to colol blocks correctly based on biome
+# TODO: figure out how to color blocks correctly based on biome
 block_colors.update({
 
     "acacia_leaves": bytes((0, 109, 0)),
     "attached_melon_stem": bytes((0, 106, 0)),
+    "attached_pumpkin_stem": bytes((0, 106, 0)),
     "birch_leaves": bytes((0, 109, 0)),
     "dark_oak_leaves": bytes((0, 109, 0)),
     "fire": bytes((255, 0, 0)),
@@ -991,6 +992,7 @@ block_colors.update({
     "grass_block": bytes((109, 153, 48)),
     "jungle_leaves": bytes((0, 109, 0)),
     "large_fern": bytes((0, 106, 0)),
+    "melon_stem": bytes((0, 106, 0)),
     "oak_leaves": bytes((0, 109, 0)),
     "pumpkin_stem": bytes((0, 106, 0)),
     "spruce_leaves": bytes((0, 109, 0)),
