@@ -8,14 +8,7 @@ import zipfile
 from PIL import Image
 
 
-def get_texture(jar, blockstate):
-    filename = os.path.join(jar, "blockstates", blockstate)
-    if not os.path.isfile(filename):
-        raise Exception("file missing (expected at %s)" % filename)
-
-    with open(filename) as f:
-        data = json.load(f)
-
+def get_texture(jar, data):
     model = None
     if "variants" in data:
         key = sorted(data["variants"])[-1]
@@ -32,25 +25,26 @@ def get_texture(jar, blockstate):
     elif type(model) is dict:
         model = model["model"]
 
-    with open(os.path.join(jar, "models", *model.split("/"))+".json") as f:
-        data = json.load(f)
+    model = model.replace("minecraft:", "")
+    model = f"assets/minecraft/models/{model}.json"
+    data = json.loads(jar.read(model).decode("utf-8"))
 
     key = "top"
     if key not in data["textures"]:
         key = sorted(data["textures"])[-1]
-    texture = data["textures"][key]
+    texture_file = data["textures"][key].replace("minecraft:", "")
+    texture_file = f"assets/minecraft/textures/{texture_file}.png"
 
-    filename = os.path.join(jar, "textures", *texture.split("/"))+".png"
-    if not os.path.isfile(filename):
-        raise Exception("texture file does not exist: %s" % texture)
+    with jar.open(texture_file) as image_data:
+        texture = Image.open(image_data)
+        texture.load()
 
-    texture = Image.open(filename)
     if texture.mode == "P":
         texture = texture.convert("RGBA")
     result = collections.Counter(pixel for pixel in texture.getdata()
         if not (len(pixel) == 4 and pixel[-1] == 0))
 
-    return result.most_common(1)[0][0][:3]
+    return ", ".join(map(str, result.most_common(1)[0][0][:3]))
 
 
 def main():
@@ -69,13 +63,12 @@ def main():
         filenames = jar.namelist()
         blockstates = [f for f in filenames if f.startswith("assets/minecraft/blockstates/")]
         for blockstate in blockstates:
-            basename = blockstates.split("/")[-1].split(".")[0]
+            basename = blockstate.split("/")[-1].split(".")[0]
             try:
                 info = json.loads(jar.read(blockstate).decode("utf-8"))
-                texture = get_texture_name(info)
-                print(f'"{basename}": bytes(%s),' % get_texture(info))
+                print(f'"{basename}": bytes(({get_texture(jar, info)})),')
             except Exception as e:
-                errors[basename] = str(e)
+                errors[basename] = f"{type(e)}: {e}"
 
     if len(errors):
         for blockstate, error in errors.items():
