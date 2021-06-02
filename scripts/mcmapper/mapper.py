@@ -135,14 +135,11 @@ def render_region(region, layer="WORLD_SURFACE"):
     return result
 
 
-def render_world(world):
+def render_world(world, dimension=None):
     print("Loading world...")
     if type(world) is str:
         world = LevelInfo(world)
-    player = world.get_players()[0]
-    dimension = player.dimension
-    if dimension == "nether":
-        dimension = "overworld"
+    dimension = dimension or world.get_players()[0].dimension
 
     print("Getting regions...")
     region_files = world.get_regions(dimension)
@@ -190,9 +187,6 @@ def render_world(world):
     else:
         print()
 
-    if len(renderable_regions) == 0:
-        print("No regions to render")
-        return
     for idx, region in enumerate(renderable_regions):
         print("\rRendering region %d/%d..." % (idx+1, len(renderable_regions)), end="", flush=True)
         x, z = region
@@ -204,7 +198,8 @@ def render_world(world):
             print("Error rendering region %s: %s" % (str((x, z)), e))
         tile.save(tile_file)
         result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
-    print()
+    if len(renderable_regions) > 0:
+        print()
 
     print("Saving world map...")
     result_filename = os.path.join(data_dir, "_%s.png" % dimension)

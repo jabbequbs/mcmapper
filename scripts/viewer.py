@@ -135,7 +135,6 @@ class MapViewerWindow(pyglet.window.Window):
         return self.gui
 
     def set_progress(self, progress):
-        print(progress)
         with self.progress_lock:
             self.progress = progress
 
@@ -169,7 +168,7 @@ class MapViewerWindow(pyglet.window.Window):
             if self.cancel_render:
                 return
             command = [sys.executable, __file__, self.level.folder,
-                "--region", f"{dimension},{region_x},{region_z}"]
+                "--region", f"{region_x},{region_z}", "--dimension", dimension]
             kwargs = {"stdout":subprocess.PIPE, "stderr":subprocess.STDOUT}
             if os.name == "nt":
                 kwargs["creationflags"] = 0x08000000 # CREATE_NO_WINDOW
@@ -353,6 +352,9 @@ def main():
     parser.add_argument("world", nargs="?")
     parser.add_argument("--render", action="store_true",
         help="Regenerate the tiles and world map for the specified world")
+    parser.add_argument("--dimension", default="overworld",
+        choices=("overworld", "nether", "end"),
+        help="Which dimension to process")
     parser.add_argument("--region",
         help="Render a certain region for the specified world")
     args = parser.parse_args()
@@ -365,20 +367,19 @@ def main():
         args.world = folders[-1]
     if args.render:
         # cProfile.runctx("render_world(args.world.folder)", globals(), locals())
-        render_world(args.world.folder)
+        render_world(args.world.folder, args.dimension)
         if len(missing_blocks):
             print("Missing blocks:")
             print("  " + "\n  ".join(sorted(missing_blocks.keys())))
     elif args.region:
-        dimension, x, z = args.region.split(",")
-        x, z = int(x), int(z)
+        x, z = map(int, args.region.split(","))
         data_dir = fs.get_data_dir(args.world.folder)
-        filename = os.path.join(data_dir, f"{dimension}.{x}.{z}.png")
-        if dimension == "nether":
+        filename = os.path.join(data_dir, f"{args.dimension}.{x}.{z}.png")
+        if args.dimension == "nether":
             # Render a horizontal slice of the nether at the surface of the lava lake
-            render_region(args.world.get_region(dimension, x, z), 31).save(filename)
+            render_region(args.world.get_region(args.dimension, x, z), 31).save(filename)
         else:
-            render_region(args.world.get_region(dimension, x, z)).save(filename)
+            render_region(args.world.get_region(args.dimension, x, z)).save(filename)
         if len(missing_blocks):
             print("\n".join(f"Missing block: {b}" for b in sorted(missing_blocks)))
     else:
