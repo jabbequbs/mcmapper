@@ -71,6 +71,7 @@ class MapViewerWindow(pyglet.window.Window):
         pyglet.window.Window.__init__(self, *args, **kwargs)
         self.level = world
         self._player = None
+        self._dimension = None
         self.indicator = Indicator(self)
         self.dimension = None
         self.scale = 2.0
@@ -97,10 +98,19 @@ class MapViewerWindow(pyglet.window.Window):
         self._player = value
         if value.dimension != self.dimension:
             self.dimension = value.dimension
-            self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), value.dimension)
             self.locate_player()
         self.player_location = (value.x, value.z)
         self.indicator.update(value)
+
+    @property
+    def dimension(self):
+        return self._dimension
+
+    @dimension.setter
+    def dimension(self, value):
+        self._dimension = value
+        self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), value)
+        self.set_caption(f"Map Viewer - {self.level.name} - {self._dimension}")
 
     def locate_player(self):
         self.x = self._player.x-self.width/(2*self.scale)
@@ -114,7 +124,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.rectangles = {}
         self.pressed_button = None
         y = 0
-        for text in ("REFRESH MAP", "LOCATE PLAYER"):
+        for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE DIMENSION"):
             label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center")
             if self.font_spacing is None:
                 self.font_height = label.content_height
@@ -168,10 +178,10 @@ class MapViewerWindow(pyglet.window.Window):
             if self.cancel_render:
                 return
             command = [sys.executable, __file__, self.level.folder,
-                "--region", f"{region_x},{region_z}", "--dimension", dimension]
+                "--region", f" {region_x},{region_z}", "--dimension", dimension]
             kwargs = {"stdout":subprocess.PIPE, "stderr":subprocess.STDOUT}
-            if os.name == "nt":
-                kwargs["creationflags"] = 0x08000000 # CREATE_NO_WINDOW
+            # if os.name == "nt":
+            #     kwargs["creationflags"] = 0x08000000 # CREATE_NO_WINDOW
             print(f"Rendering region {command[-1]} {kwargs}")
             worker = subprocess.Popen(command, **kwargs)
             output = worker.communicate()[0]
@@ -184,6 +194,8 @@ class MapViewerWindow(pyglet.window.Window):
             if worker.wait() == 0:
                 with self.sprite_lock:
                     self.sprites.sprites[(region_x, region_z)] = filename
+            else:
+                print(output)
 
         if len(renderable_regions) > 0:
             self.set_progress((f"Rendering {len(renderable_regions)} regions...", (0, len(renderable_regions))))
@@ -236,7 +248,9 @@ class MapViewerWindow(pyglet.window.Window):
 
     def on_activate(self):
         print("Activated")
-        self.player = self.level.get_players()[0]
+        new_player = self.level.get_players()[0]
+        if self.dimension == new_player.dimension:
+            self.player = new_player
 
     def on_draw(self, dt=None):
         # starttime = time.time()
@@ -254,7 +268,8 @@ class MapViewerWindow(pyglet.window.Window):
                         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                         sprite.draw()
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        self.indicator.draw()
+        if self.dimension == self.player.dimension:
+            self.indicator.draw()
 
         glLoadIdentity()
         glTranslatef(0, self.height, 0)
@@ -301,6 +316,10 @@ class MapViewerWindow(pyglet.window.Window):
                 elif command == "LOCATE PLAYER":
                     self.player = self.level.get_players()[0]
                     self.locate_player()
+                elif command == "CHANGE DIMENSION":
+                    dimensions = {"overworld":"nether","nether":"end","end":"overworld"}
+                    self.dimension = dimensions[self.dimension]
+                    self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), self.dimension)
 
         if self.pressed_button:
             self.rectangles[self.pressed_button].color = (192, 192, 192)
@@ -372,7 +391,7 @@ def main():
             print("Missing blocks:")
             print("  " + "\n  ".join(sorted(missing_blocks.keys())))
     elif args.region:
-        x, z = map(int, args.region.split(","))
+        x, z = map(int, args.region.strip().split(","))
         data_dir = fs.get_data_dir(args.world.folder)
         filename = os.path.join(data_dir, f"{args.dimension}.{x}.{z}.png")
         if args.dimension == "nether":
