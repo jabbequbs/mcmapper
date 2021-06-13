@@ -3,6 +3,7 @@
 import argparse
 import concurrent.futures
 import cProfile
+import json
 import nbt
 import os
 import pyglet
@@ -16,6 +17,7 @@ import mcmapper.filesystem as fs
 from glob import glob
 from mcmapper.level import LevelInfo
 from mcmapper.mapper import render_world, missing_blocks, render_region
+from mcmapper.data import block_colors
 from pyglet.gl import *
 from pyglet.window import key as KEY
 
@@ -67,6 +69,31 @@ class Indicator(object):
         glPopMatrix()
 
 
+class PortalIndicator(object):
+    def __init__(self, window, region_x, region_z, chunk_x, chunk_z):
+        region_width = 32*16
+        # Get the center of the target chunk
+        self.window = window
+        self.x = region_width*region_x+8+16*(chunk_x+1)
+        self.y = -region_width*(region_z+1)+8+16*(chunk_z+1)
+        self.parts = [
+            pyglet.shapes.Rectangle(-2, -3, 4, 6, color=tuple(block_colors["nether_portal"])),
+            pyglet.shapes.Line(-2, 3, 2, 3, 1, color=(0,0,0)),
+            pyglet.shapes.Line(-2, 3, -2, -3, 1, color=(0,0,0)),
+            pyglet.shapes.Line(2, -3, -2, -3, 1, color=(0,0,0)),
+            pyglet.shapes.Line(2, -3, 2, 3, 1, color=(0,0,0)),
+        ]
+
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(self.x, self.y, 0)
+        glScalef(1/self.window.scale, 1/self.window.scale, 1)
+        glScalef(4, 4, 1)
+        for part in self.parts:
+            part.draw()
+        glPopMatrix()
+
+
 class MapViewerWindow(pyglet.window.Window):
     def __init__(self, world, *args, **kwargs):
         pyglet.window.Window.__init__(self, *args, **kwargs)
@@ -89,6 +116,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.render_thread = None
         # self.render_thread = threading.Thread(target=self.render_world)
         # self.render_thread.start()
+        self.portal = PortalIndicator(self, 0, 0, 12, 20)
 
     @property
     def player(self):
@@ -230,9 +258,11 @@ class MapViewerWindow(pyglet.window.Window):
         def _process_region(dt):
             nonlocal region_idx
             if region_idx == len(regions):
-                print("\n".join(map(str, portals)))
+                with open(os.path.join(data_dir, "portals.json"), "w") as f:
+                    f.write(json.dumps(portals))
                 pyglet.clock.unschedule(_process_region)
                 self.set_progress(None)
+                self.portals = portals
             try:
                 dimension, region_x, region_z = regions[region_idx]
             except IndexError as e:
@@ -308,6 +338,7 @@ class MapViewerWindow(pyglet.window.Window):
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         if self.dimension == self.player.dimension:
             self.indicator.draw()
+        self.portal.draw()
 
         glLoadIdentity()
         glTranslatef(0, self.height, 0)
@@ -377,16 +408,16 @@ class MapViewerWindow(pyglet.window.Window):
             chunk_x = (world_x - region_origin_x) // 16
             chunk_z = (world_z - region_origin_z) // 16
             chunk = self.level.get_region("overworld", region_x, region_z).get_chunk(chunk_x, chunk_z)
-            print((world_x, world_z), (region_x, region_z))
+            print((world_x, world_z), (region_x, region_z), (chunk_x, chunk_z))
             binn = lambda i: ("%64s" % bin(i).replace("-", "")[2:]).replace(" ", "0")
-            print("Heightmap:")
-            print("\n".join(binn(e) for e in chunk["Level"]["Heightmaps"]["WORLD_SURFACE"]))
+            # print("Heightmap:")
+            # print("\n".join(binn(e) for e in chunk["Level"]["Heightmaps"]["WORLD_SURFACE"]))
             # sea level section
             section = next(section for section in chunk["Level"]["Sections"] if section["Y"].value == 3)
             print("Palette:")
             print("\n".join(str(e) for e in section["Palette"]))
-            print("Blocks:")
-            print("\n".join(binn(e) for e in section["BlockStates"]))
+            # print("Blocks:")
+            # print("\n".join(binn(e) for e in section["BlockStates"]))
             print("Palette length:", len(bin(len(section["Palette"])-1))-2)
             # import pdb; pdb.set_trace()
 
