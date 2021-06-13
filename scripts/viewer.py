@@ -3,6 +3,7 @@
 import argparse
 import concurrent.futures
 import cProfile
+import nbt
 import os
 import pyglet
 import subprocess
@@ -225,16 +226,33 @@ class MapViewerWindow(pyglet.window.Window):
         data_dir = fs.get_data_dir(self.level.folder)
 
         portals = []
-        def _process_region(dt, dimension, x, z):
-            region = get_next_region()
-            region = self.level.get_region(dimension, x, z)
-            for chunk in region:
-                if "nether_portal" in chunk.palette:
-                    portals.append(chunk)
-
+        region_idx = 0
+        def _process_region(dt):
+            nonlocal region_idx
+            if region_idx == len(regions):
+                print("\n".join(map(str, portals)))
+                pyglet.clock.unschedule(_process_region)
+                self.set_progress(None)
+            try:
+                dimension, region_x, region_z = regions[region_idx]
+            except IndexError as e:
+                print(f"{e}: len(regions)={len(regions)}, region_idx={region_idx}")
+                return
+            region = self.level.get_region(dimension, region_x, region_z)
+            for x in range(32):
+                for z in range(32):
+                    try:
+                        chunk = region.get_chunk(x, z)
+                    except nbt.region.InconceivedChunk:
+                        continue
+                    for section in chunk["Level"]["Sections"]:
+                        if "Palette" not in section:
+                            continue
+                        if any(b["Name"].value == "minecraft:nether_portal" for b in section["Palette"]):
+                            portals.append(regions[region_idx]+(x, z))
+            region_idx += 1
+            self.set_progress(("Finding portals...", (region_idx, len(regions))))
         pyglet.clock.schedule(_process_region)
-
-        self.set_progress(("Finding portals...", (1, 1)))
 
     def on_key_press(self, key, modifiers):
         if key == KEY.ESCAPE:
@@ -268,7 +286,6 @@ class MapViewerWindow(pyglet.window.Window):
             print("Unhandled key: %s,%s" % (key, modifiers))
 
     def on_activate(self):
-        print("Activated")
         new_player = self.level.get_players()[0]
         if self.dimension == new_player.dimension:
             self.player = new_player
