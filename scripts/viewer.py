@@ -124,7 +124,7 @@ class MapViewerWindow(pyglet.window.Window):
         self.rectangles = {}
         self.pressed_button = None
         y = 0
-        for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE DIMENSION"):
+        for text in ("REFRESH MAP", "LOCATE PLAYER", "CHANGE DIMENSION", "FIND PORTALS"):
             label = pyglet.text.Label(text, bold=True, color=(0,0,0, 255), anchor_y="center")
             if self.font_spacing is None:
                 self.font_height = label.content_height
@@ -214,6 +214,27 @@ class MapViewerWindow(pyglet.window.Window):
         pyglet.clock.schedule_once(_clear_progress, 1, None)
         self.workers = []
         self.render_thread = None
+
+    def find_portals(self):
+        self.set_progress(("Finding portals...", (0, 1)))
+        regions = []
+        for dimension in ("overworld", "nether"):
+            for filename in self.level.get_regions(dimension):
+                parts = os.path.basename(filename).split(".")
+                regions.append((dimension, int(parts[1]), int(parts[2])))
+        data_dir = fs.get_data_dir(self.level.folder)
+
+        portals = []
+        def _process_region(dt, dimension, x, z):
+            region = get_next_region()
+            region = self.level.get_region(dimension, x, z)
+            for chunk in region:
+                if "nether_portal" in chunk.palette:
+                    portals.append(chunk)
+
+        pyglet.clock.schedule(_process_region)
+
+        self.set_progress(("Finding portals...", (1, 1)))
 
     def on_key_press(self, key, modifiers):
         if key == KEY.ESCAPE:
@@ -320,6 +341,8 @@ class MapViewerWindow(pyglet.window.Window):
                     dimensions = {"overworld":"nether","nether":"end","end":"overworld"}
                     self.dimension = dimensions[self.dimension]
                     self.sprites = SpriteManager(fs.get_data_dir(self.level.folder), self.dimension)
+                elif command == "FIND PORTALS":
+                    self.find_portals()
 
         if self.pressed_button:
             self.rectangles[self.pressed_button].color = (192, 192, 192)
