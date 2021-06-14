@@ -70,25 +70,26 @@ class Indicator(object):
 
 
 class PortalIndicator(object):
-    def __init__(self, window, region_x, region_z, chunk_x, chunk_z):
+    def __init__(self, window, chunk_x, chunk_z):
         region_width = 32*16
         # Get the center of the target chunk
         self.window = window
-        self.x = region_width*region_x+8+16*(chunk_x+1)
-        self.y = -region_width*(region_z+1)+8+16*(chunk_z+1)
+        self.x = 8+chunk_x*16
+        self.y = -(8+chunk_z*16)
+        print(f"Portal at {(self.x, self.y)}")
         self.parts = [
             pyglet.shapes.Rectangle(-2, -3, 4, 6, color=tuple(block_colors["nether_portal"])),
-            pyglet.shapes.Line(-2, 3, 2, 3, 1, color=(0,0,0)),
-            pyglet.shapes.Line(-2, 3, -2, -3, 1, color=(0,0,0)),
-            pyglet.shapes.Line(2, -3, -2, -3, 1, color=(0,0,0)),
-            pyglet.shapes.Line(2, -3, 2, 3, 1, color=(0,0,0)),
+            pyglet.shapes.Line(-2, 3, 2, 3, 1.5, color=(0,0,0)),
+            pyglet.shapes.Line(-2, 3, -2, -3, 1.5, color=(0,0,0)),
+            pyglet.shapes.Line(2, -3, -2, -3, 1.5, color=(0,0,0)),
+            pyglet.shapes.Line(2, -3, 2, 3, 1.5, color=(0,0,0)),
         ]
 
     def draw(self):
         glPushMatrix()
         glTranslatef(self.x, self.y, 0)
         glScalef(1/self.window.scale, 1/self.window.scale, 1)
-        glScalef(4, 4, 1)
+        glScalef(6, 6, 1)
         for part in self.parts:
             part.draw()
         glPopMatrix()
@@ -116,7 +117,6 @@ class MapViewerWindow(pyglet.window.Window):
         self.render_thread = None
         # self.render_thread = threading.Thread(target=self.render_world)
         # self.render_thread.start()
-        self.portal = PortalIndicator(self, 0, 0, 12, 20)
 
     @property
     def player(self):
@@ -262,7 +262,6 @@ class MapViewerWindow(pyglet.window.Window):
                     f.write(json.dumps(portals))
                 pyglet.clock.unschedule(_process_region)
                 self.set_progress(None)
-                self.portals = portals
             try:
                 dimension, region_x, region_z = regions[region_idx]
             except IndexError as e:
@@ -279,7 +278,8 @@ class MapViewerWindow(pyglet.window.Window):
                         if "Palette" not in section:
                             continue
                         if any(b["Name"].value == "minecraft:nether_portal" for b in section["Palette"]):
-                            portals.append(regions[region_idx]+(x, z))
+                            self.portal = PortalIndicator(self,
+                                chunk["Level"]["xPos"].value, chunk["Level"]["zPos"].value)
             region_idx += 1
             self.set_progress(("Finding portals...", (region_idx, len(regions))))
         pyglet.clock.schedule(_process_region)
@@ -336,9 +336,10 @@ class MapViewerWindow(pyglet.window.Window):
                         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
                         sprite.draw()
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        if hasattr(self, "portal"):
+            self.portal.draw()
         if self.dimension == self.player.dimension:
             self.indicator.draw()
-        self.portal.draw()
 
         glLoadIdentity()
         glTranslatef(0, self.height, 0)
