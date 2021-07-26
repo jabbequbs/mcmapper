@@ -16,3 +16,4 @@ be used to re-render the map or to center the map on the player location.
 * Allow the user to place pins/labels on the map
 * Move GUI rendering into batches
 * Speed up map rendering process (maybe with C# and [Python.NET](https://pypi.org/project/pythonnet/)?)
+    * Would probably want to use .NET 5, this will need [unreleased functionality](https://github.com/pythonnet/pythonnet/issues/984#issuecomment-778786164)
