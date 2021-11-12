@@ -60,9 +60,11 @@ def render_chunk(chunk, layer, heightmap=False):
         #   37: 0000000000000000000000000000000111111000111111000111111000111111
         heights = []
         for h in height_data:
-            # Can't use `bin` by itself since it only handles unsigned values
-            bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in h.to_bytes(8, "big", signed=True))
-            heights.extend(int(bits[i-9:i], base=2)-1 for i in range(64, 1, -9))
+            for i in range(7): # 64 // 9
+                heights.append((h & 0b111111111) - 1)
+                h = h >> 9
+                if len(heights) == 256:
+                    break
 
     black = bytes((0, 0, 0))
     pixels = []
