@@ -463,7 +463,6 @@ def main():
         folders.sort(key=lambda f: f.last_played)
         args.world = folders[-1]
     if args.render:
-        # cProfile.runctx("render_world(args.world.folder)", globals(), locals())
         render_world(args.world.folder, args.dimension, force=True)
         if len(missing_blocks):
             print("Missing blocks:")

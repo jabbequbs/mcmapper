@@ -58,6 +58,7 @@ def render_chunk(chunk, layer, heightmap=False):
         heights = []
         for h in height_data:
             for i in range(7): # 64 // 9
+                # minus one since the height will be the air block above the solid block
                 heights.append((h & 0b111111111) - 1)
                 h = h >> 9
                 if len(heights) == 256:
@@ -90,6 +91,7 @@ def render_chunk(chunk, layer, heightmap=False):
                 # Find the number of bits it takes to represent the largest index in the palette (at least 4)
                 try:
                     index_len = max((4, len(bin(len(section["block_states"]["palette"])-1))-2))
+                    index_mask = int("1"*index_len, base=2)
                 except KeyError:
                     pixels.append(black)
                     continue
@@ -97,11 +99,8 @@ def render_chunk(chunk, layer, heightmap=False):
                 # Many ocean chunks will have 16 zeros terminating the list of longs
                 blocks = []
                 if "data" in section["block_states"]:
-                    for idx, bs in enumerate(section["block_states"]["data"]):
-                        # Can't use `bin` by itself since it only handles unsigned values
-                        bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in bs.to_bytes(8, "big", signed=True))
-                        # Take slices of size index_len bits from the right hand side
-                        blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
+                    for bs in section["block_states"]["data"]:
+                        blocks.extend((bs & (index_mask << (i*index_len))) >> (i*index_len) for i in range(64//index_len))
                 else:
                     blocks = [0]
                 sections[section_y] = (section, blocks)
