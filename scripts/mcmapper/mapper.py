@@ -40,15 +40,11 @@ def render_map(filename, verbose=False):
 missing_blocks = {}
 def render_chunk(chunk, layer, heightmap=False):
     # Show an image of the chunk from above
-    try:
-        height_data = chunk["Level"]["Heightmaps"][layer]
-    except:
-        if isinstance(layer, str):
-            # If the heightmap isn't included, just return a black square
-            return Image.frombytes("RGB", (16, 16),
-                b"".join(bytes((0, 0, 0)) for _ in range(256)))
-        elif isinstance(layer, int):
-            heights = [layer for _ in range(256)]
+    if chunk["Status"].value != "full":
+        return Image.frombytes("RGB", (16, 16),
+            b"".join(bytes((0, 0, 0)) for _ in range(256)))
+    elif isinstance(layer, int):
+        heights = [layer for _ in range(256)]
     else:
         # In 1.16 and up, heightmaps are 37 longs, each with 7 values of 9 bits.  The last bit of each long
         # is unused (7*9 = 63), and the last 28 bits of the last long.
@@ -58,6 +54,7 @@ def render_chunk(chunk, layer, heightmap=False):
         #   03: 0000111111000111111000111111000111111000111111000111111000111111
         #   ...
         #   37: 0000000000000000000000000000000111111000111111000111111000111111
+        height_data = chunk["Heightmaps"][layer]
         heights = []
         for h in height_data:
             for i in range(7): # 64 // 9
@@ -75,42 +72,46 @@ def render_chunk(chunk, layer, heightmap=False):
             if heightmap:
                 pixels.append(bytes((heights[pixel_idx], heights[pixel_idx], heights[pixel_idx])))
                 continue
-            section_y = heights[pixel_idx] // 16
+            section_y = heights[pixel_idx] // 16 + chunk["yPos"].value
             if section_y not in sections:
-                if len(chunk["Level"]["Sections"]) == 0 or section_y == -1:
+                if len(chunk["sections"]) == 0 or section_y == -1:
+                    print('len(chunk["sections"]) == 0 or section_y == -1:')
                     pixels.append(black)
                     continue
                 try:
-                    section = next(section for section in chunk["Level"]["Sections"]
+                    section = next(section for section in chunk["sections"]
                         if section["Y"].value == section_y)
                 except StopIteration:
                     try:
-                        section = next(section for section in reversed(chunk["Level"]["Sections"])
-                            if "Palette" in section)
+                        section = next(section for section in reversed(chunk["sections"])
+                            if "palette" in section)
                     except StopIteration:
-                        raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["Level"]["Sections"]]))
+                        raise Exception("Weird sections (was looking for %s): %s" % (section_y, [c.tags for c in chunk["sections"]]))
                 # Find the number of bits it takes to represent the largest index in the palette (at least 4)
                 try:
-                    index_len = max((4, len(bin(len(section["Palette"])-1))-2))
+                    index_len = max((4, len(bin(len(section["block_states"]["palette"])-1))-2))
                 except KeyError:
                     pixels.append(black)
                     continue
-                # BlockStates is a list of longs, each of which has some number of indices
+                # data is a list of longs, each of which has some number of indices
                 # Many ocean chunks will have 16 zeros terminating the list of longs
                 blocks = []
-                for idx, bs in enumerate(section["BlockStates"]):
-                    # Can't use `bin` by itself since it only handles unsigned values
-                    bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in bs.to_bytes(8, "big", signed=True))
-                    # Take slices of size index_len bits from the right hand side
-                    blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
+                if "data" in section["block_states"]:
+                    for idx, bs in enumerate(section["block_states"]["data"]):
+                        # Can't use `bin` by itself since it only handles unsigned values
+                        bits = "".join(("%8s"%bin(b)[2:]).replace(" ", "0") for b in bs.to_bytes(8, "big", signed=True))
+                        # Take slices of size index_len bits from the right hand side
+                        blocks.extend(int(bits[i-index_len:i], base=2) for i in range(64, index_len-1, -index_len))
+                else:
+                    blocks = [0]
                 sections[section_y] = (section, blocks)
 
             # Get the chunk section and block states
             section, blocks = sections[section_y]
             # The block state is an index into the palette
-            palette_idx = blocks[(heights[pixel_idx]%16)*256+z*16+x]
+            palette_idx = 0 if len(blocks) == 1 else blocks[(heights[pixel_idx]%16)*256+z*16+x]
             try:
-                block = section["Palette"][palette_idx]["Name"].value.replace("minecraft:", "")
+                block = section["block_states"]["palette"][palette_idx]["Name"].value.replace("minecraft:", "")
             except IndexError:
                 color = block_colors["magenta_concrete"]
             else:
@@ -137,7 +138,7 @@ def render_region(region, layer="WORLD_SURFACE"):
     return result
 
 
-def render_world(world, dimension=None):
+def render_world(world, dimension=None, force=False):
     print("Loading world...")
     if type(world) is str:
         world = LevelInfo(world)
@@ -181,7 +182,9 @@ def render_world(world, dimension=None):
             print("\n%s" % e)
             continue
         tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
-        if os.path.isfile(tile_file) and os.path.getmtime(tile_file) > os.path.getmtime(region.filename):
+        if force:
+            renderable_regions.append((x, z))
+        elif os.path.isfile(tile_file) and os.path.getmtime(tile_file) > os.path.getmtime(region.filename):
             tile = Image.open(tile_file)
             result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
         else:
@@ -194,10 +197,7 @@ def render_world(world, dimension=None):
         x, z = region
         region = world.get_region(dimension, x, z)
         tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))
-        try:
-            tile = render_region(region)
-        except Exception as e:
-            print("Error rendering region %s: %s" % (str((x, z)), e))
+        tile = render_region(region)
         tile.save(tile_file)
         result.paste(tile, ((x-xMin)*512, (z-zMin)*512))
     if len(renderable_regions) > 0:

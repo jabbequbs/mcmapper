@@ -464,7 +464,7 @@ def main():
         args.world = folders[-1]
     if args.render:
         # cProfile.runctx("render_world(args.world.folder)", globals(), locals())
-        render_world(args.world.folder, args.dimension)
+        render_world(args.world.folder, args.dimension, force=True)
         if len(missing_blocks):
             print("Missing blocks:")
             print("  " + "\n  ".join(sorted(missing_blocks.keys())))
