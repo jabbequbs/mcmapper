@@ -40,7 +40,7 @@ def render_map(filename, verbose=False):
 missing_blocks = {}
 def render_chunk(chunk, layer, heightmap=False):
     # Show an image of the chunk from above
-    if chunk["Status"].value != "full":
+    if chunk["Status"].value != "minecraft:full":
         return Image.frombytes("RGB", (16, 16),
             b"".join(bytes((0, 0, 0)) for _ in range(256)))
     elif isinstance(layer, int):
@@ -192,7 +192,7 @@ def render_world(world, dimension=None, force=False):
         print()
 
     for idx, region in enumerate(renderable_regions):
-        print("\rRendering region %d/%d..." % (idx+1, len(renderable_regions)), end="", flush=True)
+        print(f"Rendering region {idx+1}/{len(renderable_regions)}...")
         x, z = region
         region = world.get_region(dimension, x, z)
         tile_file = os.path.join(data_dir, "%s.%s.%s.png" % (dimension, x, z))

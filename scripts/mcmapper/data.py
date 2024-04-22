@@ -935,6 +935,7 @@ block_colors = {
     "sea_lantern": bytes((227, 235, 228)),
     "sea_pickle": bytes((108, 114, 42)),
     "seagrass": bytes((47, 130, 0)),
+    "short_grass": bytes((160, 160, 160)),
     "shroomlight": bytes((254, 172, 109)),
     "shulker_box": bytes((151, 105, 151)),
     "skeleton_skull": bytes((73, 55, 44)),
