@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -10,7 +11,7 @@ def main():
         venvPy = next(os.path.abspath(p)
             for p in ("python3/bin/python3", "python3/Scripts/python.exe")
             if os.path.isfile(os.path.abspath(p)))
-        subprocess.call([venvPy, "-m", "pip", "install",
+        subprocess.call([venvPy, "-m", "pip", "install", "-r",
             os.path.join("scripts", "requirements.txt")])
     venvPy = next(os.path.abspath(p)
         for p in ("python3/bin/python3", "python3/Scripts/python.exe")
