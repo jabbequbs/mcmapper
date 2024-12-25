@@ -278,12 +278,14 @@ class MapViewerWindow(pyglet.window.Window):
                         chunk = region.get_chunk(x, z)
                     except nbt.region.InconceivedChunk:
                         continue
-                    for section in chunk["Level"]["Sections"]:
-                        if "Palette" not in section:
+                    for section in chunk["sections"]:
+                        try:
+                            palette = section["block_states"]["palette"]
+                        except:
                             continue
-                        if any(b["Name"].value == "minecraft:nether_portal" for b in section["Palette"]):
+                        if any(b["Name"].value == "minecraft:nether_portal" for b in palette):
                             portals.append(PortalIndicator(self, dimension,
-                                chunk["Level"]["xPos"].value, chunk["Level"]["zPos"].value))
+                                chunk["xPos"].value, chunk["zPos"].value))
                             break
             region_idx += 1
             self.set_progress(("Finding portals...", (region_idx, len(regions))))
